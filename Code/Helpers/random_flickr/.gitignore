@@ -1,0 +1,7 @@
+.DS_Store
+*.txt
+*.pyc
+
+response.json
+config.json
+doc
