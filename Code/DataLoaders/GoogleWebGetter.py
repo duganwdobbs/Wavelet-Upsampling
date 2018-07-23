@@ -4,7 +4,6 @@ import numpy as np, tensorflow as tf
 import os, io, random, cv2, sys, pickle, contextlib
 from multiprocessing import Process, Queue, Event
 
-sys.path.append('E:/Wavelet-Upsampling/Helpers/google_images_download/')
 from google_images_download import google_images_download
 
 flags = tf.app.flags
@@ -74,7 +73,7 @@ class DataGenerator:
     random.shuffle(self.internal_list)
 
     # Start the downloader. It'll self-terminate when it doesn't need to download any more.
-    self.downloader = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list))
+    self.downloader = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory)
     self.downloader.start()
 
     # Build the number of current data, the total target size, and the number seen
@@ -125,6 +124,7 @@ class DataGenerator:
       # print(x,end=',')
       file = self.internal_list[self.num_seen+x]
       try:
+        # print(self.img_directory+file+'.jpg')
         img = cv2.imread(self.img_directory+file+'.jpg')
         height, width, channels = img.shape
         if height < FLAGS.imgH or width < FLAGS.imgW:
@@ -151,8 +151,9 @@ class DataGenerator:
       cv2.destroyAllWindows()
 
 class DownloaderProcess(Process):
-  def __init__(self,q,to_download,):
+  def __init__(self,q,to_download,img_directory,):
     Process.__init__(self)
+    self.img_directory = img_directory
     self.exit        = Event()
     self.out_queue   = q
     self.to_download = to_download
@@ -160,7 +161,7 @@ class DownloaderProcess(Process):
 
   def run(self):
     while not self.exit.is_set():
-      download_runner(self.out_queue)
+      download_runner(self.out_queue,self.img_directory)
       self.downloaded += 1
       if self.downloaded > self.to_download:
         self.shutdown()
@@ -168,16 +169,16 @@ class DownloaderProcess(Process):
   def shutdown(self):
     self.exit.set()
 
-def download_runner(q):
+def download_runner(q,img_directory):
   randomstr = get_rand_str()
   with contextlib.redirect_stdout(io.StringIO()):
-    dls = downloader.download({'keywords':randomstr,'limit':RELATED_IMGS,'format':'jpg','color_type':'full-color','size':'>800*600','aspect_ratio':'wide','type':'photo','output_directory':'E:/Wavelet-Upsampling/Data/','image_directory':'./','safe_search':'','no_numbering':''})
+    dls = downloader.download({'keywords':randomstr,'limit':RELATED_IMGS,'format':'jpg','color_type':'full-color','size':'>800*600','aspect_ratio':'wide','type':'photo','output_directory':img_directory,'image_directory':'./','safe_search':'','no_numbering':''})
   for key in dls:
     for path in dls[key]:
       q.put(path.split('\\')[-1].replace('.jpg',""))
 
 if __name__ == '__main__':
-  internal_generator = DataGenerator('train','E:/Wavelet-Upsampling/')
+  internal_generator = DataGenerator('train','D:/Wavelet-Upsampling/')
   imgs, batch_list = internal_generator.get_next_batch(20)
   internal_generator.test(imgs)
   internal_generator.downloader.terminate()

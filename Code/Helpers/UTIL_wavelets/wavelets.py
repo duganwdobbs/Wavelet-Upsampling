@@ -38,10 +38,10 @@ def make_decomposition_filter(wavelet):
 def dwt(inputs, wavelet, padding_mode = "periodization"):
     wavelet_length = len(wavelet)
     wavelet_pad = wavelet_length-2
-    channels = tf.shape(inputs)[3]
-    height = tf.shape(inputs)[1]
-    width = tf.shape(inputs)[2]
-    filter = make_decomposition_filter(wavelet)
+    channels    = tf.shape(inputs)[3]
+    height      = tf.shape(inputs)[1]
+    width       = tf.shape(inputs)[2]
+    filter      = make_decomposition_filter(wavelet)
 
     inputs = tf.transpose(inputs, [0, 3, 1, 2])
     # now [batch, channel, height, width]

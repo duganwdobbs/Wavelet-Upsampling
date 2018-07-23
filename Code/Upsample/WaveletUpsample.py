@@ -201,7 +201,9 @@ class ANN:
     to_idwt = tf.zeros([2,2,FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3],tf.float32)
 
     # Average Decomposition, what we're given
-    self.re_img
+    avg_scale = tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
+    tf.summary.scalar("Scale_Mul",avg_scale)
+    self.re_img = self.re_img * avg_scale
     # Low pass Width
     self.low_w  = decomps[:,:,:,0:3]
     # Low pass Height
@@ -215,11 +217,19 @@ class ANN:
             ,-1)
     dwt = tf.transpose(dwt, [4,5,0,1,2,3])
 
-    pywt_wavelet = "haar"
+    pywt_wavelet = "db2"
     wavelet = eval("wavelets." + pywt_wavelet)
 
     self.w_x, self.logs = wavelets.idwt(dwt, wavelet)
+    # self.logs = self.logs + tf.reduce_min(self.logs)
     self.logs = ops.relu(self.logs)
+    self.logs = self.logs / tf.reduce_max(self.logs)
+
+    self.abs_er = self.imgs - self.logs
+    self.abs_er = tf.abs(self.abs_er / tf.reduce_max(self.abs_er))
+    self.abs_er = tf.reduce_mean(self.abs_er,-1)
+    b,h,w = self.abs_er.get_shape().as_list()
+    self.abs_er = tf.reshape(self.abs_er,[b,h,w,1])
 
     self.summary_image("Average"  ,self.re_img)
     self.summary_image('Low_W'    ,self.low_w )
@@ -227,6 +237,7 @@ class ANN:
     self.summary_image('High_'    ,self.high_p)
     self.summary_image("Origional",self.imgs  )
     self.summary_image("Result"   ,self.logs  )
+    self.summary_image("Error"    ,self.abs_er)
 
   # END INFERENCE
 
