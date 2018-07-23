@@ -1,0 +1,7 @@
+
+*.pyc
+*.jpg
+
+
+Data/
+network_log/

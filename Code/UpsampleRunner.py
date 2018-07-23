@@ -13,8 +13,8 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 if   platform.system() == 'Windows':
-  flags.DEFINE_string ('base_dir', 'E:/Wavelet-Upsampling/'      , 'Base os specific DIR')
-  flags.DEFINE_string ('code_dir', 'E:/Wavelet-Upsampling/Code/', 'Location of the code files.')
+  flags.DEFINE_string ('base_dir', 'D:/Wavelet-Upsampling/'      , 'Base os specific DIR')
+  flags.DEFINE_string ('code_dir', 'D:/Wavelet-Upsampling/Code/', 'Location of the code files.')
 elif platform.system() == 'Linux':
   flags.DEFINE_string ('base_dir', '/data0/ddobbs/Wavelet-Upsampling/'      , 'Base os specific DIR')
   flags.DEFINE_string ('code_dir', '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
@@ -40,7 +40,7 @@ def train(train_run = True, restore = False,epoch = 0):
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = 1
   else:
-    FLAGS.batch_size = 4
+    FLAGS.batch_size = 2
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = .8
 
