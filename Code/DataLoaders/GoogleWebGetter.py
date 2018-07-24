@@ -139,6 +139,10 @@ class DataGenerator:
         imgs.append(img)
         files.append(file)
       except:
+        try:
+          os.remove(self.img_directory+file+'.jpg')
+        except:
+          pass
         del self.internal_list[self.num_seen + x]
         self.num_examples = len(self.internal_list)
         x -= 1

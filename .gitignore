@@ -6,3 +6,10 @@
 Data/
 network_log/
 *.pyc
+*.lst
+test.lst
+train.lst
+val.lst
+Code/Upsample/__pycache__/WaveletUpsample.cpython-36.pyc
+Code/Helpers/UTIL_wavelets/__pycache__/wavelets.cpython-36.pyc
+Code/DataLoaders/__pycache__/GoogleWebGetter.cpython-36.pyc

@@ -41,7 +41,7 @@ def train(train_run = True, restore = False,epoch = 0):
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = 1
   else:
-    FLAGS.batch_size = 2
+    FLAGS.batch_size = 4
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = .8
 
