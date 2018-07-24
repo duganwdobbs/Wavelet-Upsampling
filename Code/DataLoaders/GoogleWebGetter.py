@@ -47,8 +47,10 @@ class DataGenerator:
     self.in_queue = Queue()
 
     # Find all images
-    file_list = [f.replace('.jpg' ,'') for f in os.listdir(self.img_directory ) if f.endswith('.jpg' )]
-
+    try:
+      file_list = [f.replace('.jpg' ,'') for f in os.listdir(self.img_directory ) if f.endswith('.jpg' )]
+    except FileNotFoundError:
+      os.mkdir(self.img_directory)
     # If split lists don't exist as files, create them. Shuffle values, then
     # write to test,train,val.lst
     if (not os.path.isfile(base_directory + 'test.lst' ) or
@@ -72,10 +74,6 @@ class DataGenerator:
     # Shuffle internal list order (Random Shuffle Batch)
     random.shuffle(self.internal_list)
 
-    # Start the downloader. It'll self-terminate when it doesn't need to download any more.
-    self.downloader = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory)
-    self.downloader.start()
-
     # Build the number of current data, the total target size, and the number seen
     #   in current epoch.
     self.num_examples = len(self.internal_list)
@@ -89,6 +87,11 @@ class DataGenerator:
     self.file_writer('test' ,file_list[0                  :data_len * 3  // 10])
     self.file_writer('train',file_list[data_len * 3 // 10 :data_len * 9  // 10])
     self.file_writer('val'  ,file_list[data_len * 9 // 10 :data_len * 10 // 10])
+
+  def start(self,num_threads = 5):
+    # Start the downloader. It'll self-terminate when it doesn't need to download any more.
+    self.downloaders = [DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory) for x in range(num_threads)]
+    [downloader.start() for downloader in self.downloaders]
 
   def file_writer(self,split,list):
     with open(self.base_directory + split + '.lst','wb') as fp:

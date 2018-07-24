@@ -48,6 +48,7 @@ class ANN:
         ops.init_scope_vars()
         print("\rSETTING UP %s INPUTS                    "%self.net_name,end='')
         self.generator = Generator.DataGenerator(split,FLAGS.data_dir)
+        self.generator.start(5)
         self.inputs()
         print("\rSETTING UP %s INFERENCE                 "%self.net_name,end='')
         self.inference()
@@ -201,7 +202,7 @@ class ANN:
     to_idwt = tf.zeros([2,2,FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3],tf.float32)
 
     # Average Decomposition, what we're given
-    avg_scale = tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
+    avg_scale = 1.41421356237 ** 2 #tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
     tf.summary.scalar("Scale_Mul",avg_scale)
     self.re_img = self.re_img * avg_scale
     # Low pass Width

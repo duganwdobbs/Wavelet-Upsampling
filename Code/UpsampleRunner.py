@@ -1,4 +1,4 @@
-import os,time,shutil,platform
+import os,time,shutil,platform,contextlib,io
 from multiprocessing import Process
 
 import numpy         as     np
@@ -13,8 +13,8 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 if   platform.system() == 'Windows':
-  flags.DEFINE_string ('base_dir', 'D:/Wavelet-Upsampling/'      , 'Base os specific DIR')
-  flags.DEFINE_string ('code_dir', 'D:/Wavelet-Upsampling/Code/', 'Location of the code files.')
+  flags.DEFINE_string ('base_dir', 'E:/Wavelet-Upsampling/'      , 'Base os specific DIR')
+  flags.DEFINE_string ('code_dir', 'E:/Wavelet-Upsampling/Code/', 'Location of the code files.')
 elif platform.system() == 'Linux':
   flags.DEFINE_string ('base_dir', '/data0/ddobbs/Wavelet-Upsampling/'      , 'Base os specific DIR')
   flags.DEFINE_string ('code_dir', '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
@@ -32,7 +32,8 @@ flags.DEFINE_string ('ckpt_i_name','WaveletUpsample-interrupt.ckpt'             
 
 # Helper function to start Tensorboard
 def launchTensorBoard():
-  os.system('tensorboard --logdir '+FLAGS.run_dir+'/tensorlogs/')
+  with contextlib.redirect_stdout(io.StringIO()):
+    os.system('tensorboard --logdir '+FLAGS.run_dir+'/tensorlogs/')
 
 def train(train_run = True, restore = False,epoch = 0):
   if not train_run:
