@@ -201,7 +201,7 @@ class ANN:
     to_idwt = tf.zeros([2,2,FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3],tf.float32)
 
     # Average Decomposition, what we're given
-    avg_scale = tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
+    avg_scale = 1.41421356237 #tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
     tf.summary.scalar("Scale_Mul",avg_scale)
     self.re_img = self.re_img * avg_scale
     # Low pass Width
@@ -223,7 +223,7 @@ class ANN:
     self.w_x, self.logs = wavelets.idwt(dwt, wavelet)
     # self.logs = self.logs + tf.reduce_min(self.logs)
     self.logs = ops.relu(self.logs)
-    self.logs = self.logs / tf.reduce_max(self.logs)
+    # self.logs = self.logs / tf.reduce_max(self.logs)
 
     self.abs_er = self.imgs - self.logs
     self.abs_er = tf.abs(self.abs_er / tf.reduce_max(self.abs_er))
