@@ -43,6 +43,7 @@ class DataGenerator:
   def __init__(self,split,base_directory):
     self.base_directory = base_directory + '/'
     self.img_directory  = base_directory + '/Data/'
+    self.epochs      = 0
 
     self.in_queue = Queue()
 
@@ -93,10 +94,17 @@ class DataGenerator:
     self.downloaders = [DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory) for x in range(num_threads)]
     [downloader.start() for downloader in self.downloaders]
 
+  def stop(self):
+    for downloader in downloaders:
+      downloader.terminate()
+      downloader.join()
+
+  # A class helper function to write file lists.
   def file_writer(self,split,list):
     with open(self.base_directory + split + '.lst','wb') as fp:
       pickle.dump(list,fp)
 
+  # A class helper function to read file lists.
   def file_reader(self,directory,split):
     with open(self.base_directory + split + '.lst','rb') as fp:
       list = pickle.load(fp)
@@ -107,10 +115,13 @@ class DataGenerator:
     #   examples to end of list.
 
     if batch_size+self.num_seen > self.tot_examples:
-      print("OUT OF RANGE ON %d EXAMPLES"%len(self.internal_list))
+      self.epochs  += 1
       self.num_seen = 0
       random.shuffle(self.internal_list)
-      raise IndexError
+      # Test the number of epochs to see if we should stop
+      if self.epochs >= FLAGS.num_epochs:
+        self.stop()
+        raise tf.errors.OutOfRangeError
 
     # [print(self.img_directory+file+'.jpg') for file in batch_list]
 
@@ -124,27 +135,41 @@ class DataGenerator:
         self.internal_list.append(self.in_queue.get())
         self.num_examples = len(self.internal_list)
 
-      # print(x,end=',')
       file = self.internal_list[self.num_seen+x]
       try:
-        # print(self.img_directory+file+'.jpg')
+        # Read the images
         img = cv2.imread(self.img_directory+file+'.jpg')
         height, width, channels = img.shape
+        # If the image isn't big enough, raise an error to discard the image
         if height < FLAGS.imgH or width < FLAGS.imgW:
           raise IndexError
+
+        # Resize the image to the network dimensions
         img = cv2.resize(img,(FLAGS.imgW,FLAGS.imgH))
-        # print(np.unique(img))
-        # self.test([img])
+
+        # Convert BGR to RGB
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # Add the image to the list of current images
         imgs.append(img)
+
+        # Add the file to the list of current files
         files.append(file)
       except:
+        # If any errors occur, this block fires
         try:
+          # Remove the bad file
           os.remove(self.img_directory+file+'.jpg')
         except:
+          # If it can't remove the bad file, just ignore it for now.
           pass
+        # Delete the bad file from the internal list
         del self.internal_list[self.num_seen + x]
+
+        # Resize the number of examples in the current list.
         self.num_examples = len(self.internal_list)
+
+        # Reduce the value of x so that we know how far we've gone.
         x -= 1
       x += 1
 
@@ -157,6 +182,7 @@ class DataGenerator:
       cv2.waitKey(0)
       cv2.destroyAllWindows()
 
+# This class runs the downloading threading, and inherits from Process
 class DownloaderProcess(Process):
   def __init__(self,q,to_download,img_directory,):
     Process.__init__(self)
@@ -176,6 +202,7 @@ class DownloaderProcess(Process):
   def shutdown(self):
     self.exit.set()
 
+# This is the function to run the downloading.
 def download_runner(q,img_directory):
   randomstr = get_rand_str()
   with contextlib.redirect_stdout(io.StringIO()):
@@ -184,6 +211,7 @@ def download_runner(q,img_directory):
     for path in dls[key]:
       q.put(path.split('\\')[-1].replace('.jpg',""))
 
+# This is a debugging function that runs if this specific file is run.
 if __name__ == '__main__':
   internal_generator = DataGenerator('train','D:/Wavelet-Upsampling/')
   imgs, batch_list = internal_generator.get_next_batch(20)

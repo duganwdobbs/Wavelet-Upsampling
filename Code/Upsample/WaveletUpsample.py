@@ -198,11 +198,11 @@ class ANN:
 
       net = self.Decoder(net,skip,kmap,feature,stride,len(strides)+1-x)
 
-    decomps = ops.conv2d(net,9,3,name='Decomp_Formatter')
+    decomps = ops.conv2d(net,9,3,name='Decomp_Formatter',activation = None)
     to_idwt = tf.zeros([2,2,FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3],tf.float32)
 
     # Average Decomposition, what we're given
-    avg_scale = tf.Variable(1.5, name = "avg_scale",dtype = tf.float32)
+    avg_scale = 2 # tf.Variable(2, name = "avg_scale",dtype = tf.float32)
     tf.summary.scalar("Scale_Mul",avg_scale)
     self.re_img = self.re_img * avg_scale
     # Low pass Width
@@ -222,9 +222,7 @@ class ANN:
     wavelet = eval("wavelets." + pywt_wavelet)
 
     self.w_x, self.logs = wavelets.idwt(dwt, wavelet)
-    # self.logs = self.logs + tf.reduce_min(self.logs)
     self.logs = ops.relu(self.logs)
-    # self.logs = self.logs / tf.reduce_max(self.logs)
 
     self.abs_er = self.imgs - self.logs
     self.abs_er = tf.abs(self.abs_er / tf.reduce_max(self.abs_er))
@@ -253,7 +251,7 @@ class ANN:
     self.metrics = {"RMSE":rmse}
 
 
-  def optomize(self,loss,learning_rate = .0001):
+  def optomize(self,loss,learning_rate = .001):
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
       # optomizer = tf.train.RMSPropOptimizer(learning_rate,decay = 0.9, momentum = 0.3)
@@ -284,6 +282,7 @@ class ANN:
     self.step+= 1
 
     _imgs,_ids = self.generator.get_next_batch(FLAGS.batch_size)
+
     fd               = {self.imgs : _imgs}
 
     _logs = 0
@@ -300,7 +299,7 @@ class ANN:
       self.writer.add_summary(summaries,self.step)
 
       self.logging_ids.append(_ids)
-      self.losses.append(metrics['Huber'])
+      self.losses.append(metrics['RMSE'])
 
     # This is a logging step.
     elif self.step % 10 == 0:
