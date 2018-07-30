@@ -166,77 +166,98 @@ class ANN:
 
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
+  def encoder_decoder(self,net,out_features,name="Encoder_Decoder"):
+    with tf.variable_scope(name) as scope:
+      trainable   = True
+      kmaps       = [ 2, 3]
+      features    = [ 4, 6]
+      strides     = [ 2, 3]
+      skips       = []
+
+      for x in range(len(strides)):
+        level = x+1
+        stride = strides[x]
+        kmap   = kmaps[x]
+        feature= features[x]
+
+        skip,net = self.Encoder(net,kmap,feature,stride,x+1)
+
+        skips.append(skip)
+
+      for x in range(1,len(strides)+1):
+        skip   = skips[-x]
+        stride = strides[-x]
+        kmap   = kmaps[-x]
+        feature= features[-x]
+
+        net = self.Decoder(net,skip,kmap,feature,stride,len(strides)+1-x)
+      net = ops.conv2d(net,out_features,3,name='Decomp_Formatter',activation = None)
+      return net
+
   def summary_image(self,name,img):
+    with tf.variable_scope(name) as scope:
+      img = img + tf.minimum(0.0,tf.reduce_min(img))
     tf.summary.image(name,img)
 
+  def summary_wavelet(self,name,dwt_output):
+    with tf.variable_scope(name) as scope:
+      avg    = dwt_output[0,0,:,:,:,:]
+      self.summary_image(name + "_avg",avg)
+      low_w  = dwt_output[0,1,:,:,:,:]
+      self.summary_image(name + "_low_w",low_w)
+      low_h  = dwt_output[1,0,:,:,:,:]
+      self.summary_image(name + "_low_h",low_h)
+      detail = dwt_output[1,1,:,:,:,:]
+      self.summary_image(name + "_detail",detail)
+
+  def gen_aerr(self,labels,logits):
+    with tf.variable_scope("AbsErrGen") as scope:
+      err = tf.abs(labels-logits)
+      err = tf.reduce_mean(err,-1)
+      err = tf.expand_dims(err,-1)
+      return err
+
   def inference(self):
-    trainable   = True
-    kmaps       = [ 4, 6]
-    features    = [ 6, 8]
-    strides     = [ 2, 3]
-    skips       = []
-
-    # Resize and norm images
-    self.re_img = self.imgs[:,::2,::2,:]
-    net         = self.re_img
-
-    for x in range(len(strides)):
-      level = x+1
-      stride = strides[x]
-      kmap   = kmaps[x]
-      feature= features[x]
-
-      skip,net = self.Encoder(net,kmap,feature,stride,x+1)
-
-      skips.append(skip)
-
-    for x in range(1,len(strides)+1):
-      skip   = skips[-x]
-      stride = strides[-x]
-      kmap   = kmaps[-x]
-      feature= features[-x]
-
-      net = self.Decoder(net,skip,kmap,feature,stride,len(strides)+1-x)
-
-    decomps = ops.conv2d(net,9,3,name='Decomp_Formatter',activation = None)
-    to_idwt = tf.zeros([2,2,FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3],tf.float32)
-
-    # Average Decomposition, what we're given
-    avg_scale = 2 # tf.Variable(2, name = "avg_scale",dtype = tf.float32)
-    tf.summary.scalar("Scale_Mul",avg_scale)
-    self.re_img = self.re_img * avg_scale
-    # Low pass Width
-    self.low_w  = decomps[:,:,:,0:3]
-    # Low pass Height
-    self.low_h  = decomps[:,:,:,3:6]
-    # High Pass
-    self.high_p = decomps[:,:,:,6:9]
-
-    dwt = tf.stack(
-    [ tf.stack([self.re_img,self.low_w],-1),
-      tf.stack([self.low_h,self.high_p],-1) ]
-            ,-1)
-    dwt = tf.transpose(dwt, [4,5,0,1,2,3])
-
     pywt_wavelet = "db2"
     wavelet = eval("wavelets." + pywt_wavelet)
 
-    self.w_x, self.logs = wavelets.idwt(dwt, wavelet)
+    # Resize and norm images
+    self.re_img = self.imgs[:,::2,::2,:]
+
+    with tf.variable_scope("DWT") as scope:
+      gt_dwt = wavelets.dwt(self.imgs, wavelet)
+      self.gt_avg    = gt_dwt[0,0,:,:,:,:]
+      self.gt_low_w  = gt_dwt[0,1,:,:,:,:]
+      self.gt_low_h  = gt_dwt[1,0,:,:,:,:]
+      self.gt_detail = gt_dwt[1,1,:,:,:,:]
+
+    # Average Decomposition, what we're given
+    # avg_scale = tf.Variable(2, name = "avg_scale",dtype = tf.float32)
+    self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Gen")
+    # Low pass Width
+    self.pred_low_w  = self.encoder_decoder(self.re_img,3,"Low_w_Gen")
+    # Low pass Height
+    self.pred_low_h  = self.encoder_decoder(self.re_img,3,"Low_h_Gen")
+    # High Pass
+    self.pred_detail = self.encoder_decoder(self.re_img,3,"Detail_Gen")
+
+    pred_dwt = tf.stack(
+    [ tf.stack([self.pred_avg   , self.pred_low_w ],-1),
+      tf.stack([self.pred_low_h , self.pred_detail],-1) ]
+            ,-1)
+    pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
+
+    with tf.variable_scope("IDWT") as scope:
+      self.w_x, self.logs = wavelets.idwt(pred_dwt, wavelet)
     self.logs = ops.relu(self.logs)
 
-    self.abs_er = self.imgs - self.logs
-    self.abs_er = tf.abs(self.abs_er / tf.reduce_max(self.abs_er))
-    self.abs_er = tf.reduce_mean(self.abs_er,-1)
-    b,h,w = self.abs_er.get_shape().as_list()
-    self.abs_er = tf.reshape(self.abs_er,[b,h,w,1])
+    self.summary_wavelet("3_Pred_Wav",pred_dwt)
+    self.summary_wavelet("3_GT_Wav",gt_dwt)
+    self.summary_wavelet("4_Error_Wav",self.gen_aerr(gt_dwt,pred_dwt))
 
-    self.summary_image("Average"  ,self.re_img)
-    self.summary_image('Low_W'    ,self.low_w )
-    self.summary_image('Low_H'    ,self.low_h )
-    self.summary_image('High_'    ,self.high_p)
-    self.summary_image("Origional",self.imgs  )
-    self.summary_image("Result"   ,self.logs  )
-    self.summary_image("Error"    ,self.abs_er)
+    self.summary_image("1_Origional"  ,self.imgs  )
+    self.summary_image("1_Result"     ,self.logs  )
+    self.summary_image("2_Full_Error" ,self.gen_aerr(self.logs,self.imgs))
 
   # END INFERENCE
 
@@ -299,7 +320,7 @@ class ANN:
       self.writer.add_summary(summaries,self.step)
 
       self.logging_ids.append(_ids)
-      self.losses.append(metrics['RMSE'])
+      self.losses.append(_metrics['RMSE'])
 
     # This is a logging step.
     elif self.step % 10 == 0:

@@ -78,7 +78,7 @@ class DataGenerator:
     # Build the number of current data, the total target size, and the number seen
     #   in current epoch.
     self.num_examples = len(self.internal_list)
-    self.tot_examples = DATASET_TARGET_SIZE
+    self.tot_examples = max(DATASET_TARGET_SIZE,len(self.internal_list))
     self.num_seen     = 0
 
   # Write the three data lists.
@@ -95,7 +95,7 @@ class DataGenerator:
     [downloader.start() for downloader in self.downloaders]
 
   def stop(self):
-    for downloader in downloaders:
+    for downloader in self.downloaders:
       downloader.terminate()
       downloader.join()
 
@@ -121,7 +121,7 @@ class DataGenerator:
       # Test the number of epochs to see if we should stop
       if self.epochs >= FLAGS.num_epochs:
         self.stop()
-        raise tf.errors.OutOfRangeError
+        raise KeyError
 
     # [print(self.img_directory+file+'.jpg') for file in batch_list]
 
@@ -165,6 +165,11 @@ class DataGenerator:
           pass
         # Delete the bad file from the internal list
         del self.internal_list[self.num_seen + x]
+        # Start a new file downloading.
+        newDLer = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory)
+        newDLer.start()
+        self.downloaders.append(newDLer)
+
 
         # Resize the number of examples in the current list.
         self.num_examples = len(self.internal_list)
@@ -196,7 +201,7 @@ class DownloaderProcess(Process):
   def run(self):
     while not self.exit.is_set():
       download_runner(self.out_queue,self.img_directory)
-      self.downloaded += 1
+      self.downloaded += RELATED_IMGS
       if self.downloaded > self.to_download:
         self.shutdown()
 

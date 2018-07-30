@@ -68,7 +68,7 @@ def train(train_run = True, restore = False,epoch = 0):
   except KeyboardInterrupt:
     if train_run:
       net.save()
-  except tf.errors.OutOfRangeError:
+  except (tf.errors.OutOfRangeError,KeyError):
     print("\rDone.                                                            ")
   finally:
     if train_run:
@@ -110,7 +110,7 @@ def main(_):
     this_met = .01
 
     best = 0
-    x = 0
+    x = 2
 
 
     while(this_met < best_met or overlap < max_lap):
