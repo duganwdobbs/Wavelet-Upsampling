@@ -192,6 +192,7 @@ class DownloaderProcess(Process):
     self.to_download = to_download
     self.downloaded  = 0
 
+  # Overloaded inherited run functionality from multiprocessing.Process
   def run(self):
     while not self.exit.is_set():
       download_runner(self.out_queue,self.img_directory)
@@ -205,8 +206,19 @@ class DownloaderProcess(Process):
 # This is the function to run the downloading.
 def download_runner(q,img_directory):
   randomstr = get_rand_str()
+  # Mute console output for this function
   with contextlib.redirect_stdout(io.StringIO()):
-    dls = downloader.download({'keywords':randomstr,'limit':RELATED_IMGS,'format':'jpg','color_type':'full-color','size':'>800*600','aspect_ratio':'wide','type':'photo','output_directory':img_directory,'image_directory':'./','safe_search':'','no_numbering':''})
+    dls = downloader.download({'keywords':randomstr,
+                               'limit':RELATED_IMGS,
+                               'format':'jpg',
+                               'color_type':'full-color',
+                               'size':'>800*600',
+                               'aspect_ratio':'wide',
+                               'type':'photo',
+                               'output_directory':img_directory,
+                               'image_directory':'./',
+                               'safe_search':'',
+                               'no_numbering':''                 })
   for key in dls:
     for path in dls[key]:
       q.put(path.split('\\')[-1].replace('.jpg',""))
