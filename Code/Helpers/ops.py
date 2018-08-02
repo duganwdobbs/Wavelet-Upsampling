@@ -460,3 +460,32 @@ def dense_reduction(net,training, filters = 2, kernel = 3, kmap = 5, stride = 1,
     return net
 
   return net
+
+
+''' PROVIDED BY https://github.com/simonmeister/UnFlow/blob/master/src/e2eflow/core/losses.py'''
+def charbonnier_loss(labels, logits, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001, name = "Charbonnier"):
+    x = labels - logits
+    """Compute the generalized charbonnier loss of the difference tensor x.
+    All positions where mask == 0 are not taken into account.
+    Args:
+        x: a tensor of shape [num_batch, height, width, channels].
+        mask: a mask of shape [num_batch, height, width, mask_channels],
+            where mask channels must be either 1 or the same number as
+            the number of channels of x. Entries should be 0 or 1.
+    Returns:
+        loss as tf.float32
+    """
+    with tf.variable_scope('charbonnier_loss'):
+        batch, height, width, channels = tf.unstack(tf.shape(x))
+        normalization = tf.cast(batch * height * width * channels, tf.float32)
+
+        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
+
+        if mask is not None:
+            error = tf.multiply(mask, error)
+
+        if truncate is not None:
+            error = tf.minimum(error, truncate)
+        err = tf.reduce_sum(error) / normalization
+        tf.summary.scalar(name,err)
+        return err

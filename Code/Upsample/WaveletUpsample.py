@@ -164,6 +164,34 @@ class ANN:
 
     return net
 
+   def Dense_Add_Block(self,net,level,features = None, kernel = 3, kmap = 4):
+    with tf.variable_scope("Dense_Block_%d"%level) as scope:
+      # If net is multiple tensors, concat them.
+      net = ops.delist(net)
+      if features is None:
+        b,h,w,c = net.get_shape().as_list()
+        features = c
+      # Setup a list to store map outputs.
+      outs = []
+
+      # Dummy variable for training and trainable atm self.
+      training = True
+      trainable = True
+
+      for n in range(kmap):
+        # BN > RELU > CONV > DROPOUT, as per 100 Layers Tiramisu
+        out  = ops.batch_norm(ops.delist([net,ops.delist(outs)]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
+        out  = ops.relu(out)
+        out  = tf.layers.dropout(out,FLAGS.keep_prob)
+        out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
+        out  = tf.add_n([net,out])
+        for n in outs:
+          out = tf.add_n([out,n])
+        outs.append(out)
+
+      return outs[-1]
+
+
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def encoder_decoder(self,net,out_features,name="Encoder_Decoder"):
@@ -248,28 +276,37 @@ class ANN:
     pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
 
     with tf.variable_scope("IDWT") as scope:
-      self.w_x, self.logs = wavelets.idwt(pred_dwt, wavelet)
-    self.logs = ops.relu(self.logs)
+      self.w_x, self.wav_logs = wavelets.idwt(pred_dwt, wavelet)
+    self.wav_logs = ops.relu(self.wav_logs)
 
     self.summary_wavelet("3_Pred_Wav",pred_dwt)
     self.summary_wavelet("3_GT_Wav",gt_dwt)
     self.summary_wavelet("4_Error_Wav",self.gen_aerr(gt_dwt,pred_dwt))
 
     self.summary_image("1_Origional"  ,self.imgs  )
-    self.summary_image("1_Result"     ,self.logs  )
-    self.summary_image("2_Full_Error" ,self.gen_aerr(self.logs,self.imgs))
+    self.summary_image("1_Resized"    ,self.re_img)
+    self.summary_image("1_WavResult"  ,self.wav_logs  )
+    self.summary_image("2_Full_Error" ,self.gen_aerr(self.wav_logs,self.imgs))
+
+    self.da_logs = self.Dense_Add_Block(self.wav_logs   ,1)
+    self.da_logs = self.Dense_Add_Block(self.da_logs,2)
+    self.da_logs = ops.relu(self.da_logs)
 
   # END INFERENCE
 
   def build_metrics(self):
-    labels,logits = self.imgs,self.logs
-    rmse          = ops.count_rmse(labels,logits)
+    labels = self.imgs
+    wav_rmse      = ops.count_rmse(labels,self.wav_logs,name = "Wav_RMSE")
+    da_rmse       = ops.count_rmse(labels,self.da_logs,name = "Da_RMSE")
+
+    wav_char      = ops.charbonnier_loss(labels,self.wav_logs,name = "Wav_Char")
+    da_char       = ops.charbonnier_loss(labels,self.da_logs,name = "Da_Char")
 
     # Not enabling L2 loss, as counting networks might not work well with it.
     # total_loss = l2loss(huber,l2 = True)
 
-    self.train = self.optomize(rmse)
-    self.metrics = {"RMSE":rmse}
+    self.train = self.optomize(wav_char + da_char)
+    self.metrics = {"Wav_RMSE":wav_rmse,"DA_RMSE":da_rmse,"Wav_Char":wav_char,"DA_Char":da_char}
 
 
   def optomize(self,loss,learning_rate = .001):
@@ -320,7 +357,7 @@ class ANN:
       self.writer.add_summary(summaries,self.step)
 
       self.logging_ids.append(_ids)
-      self.losses.append(_metrics['RMSE'])
+      self.losses.append(_metrics['DA_Char'])
 
     # This is a logging step.
     elif self.step % 10 == 0:
