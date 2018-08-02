@@ -384,8 +384,8 @@ def count_huber_loss(labels,logits):
   tf.summary.scalar("Huber_Loss",huber)
   return huber
 
-def count_rmse(labels,logits):
-  with tf.variable_scope("RSME_Loss") as scope:
+def count_rmse(labels,logits,name = "RSME_Loss"):
+  with tf.variable_scope(name) as scope:
     rmse = tf.sqrt(1 / FLAGS.batch_size * tf.reduce_sum(((logits - labels) ** 2)))
   tf.summary.scalar("RMSE",rmse)
   return rmse

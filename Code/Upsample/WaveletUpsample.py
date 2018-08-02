@@ -164,7 +164,7 @@ class ANN:
 
     return net
 
-   def Dense_Add_Block(self,net,level,features = None, kernel = 3, kmap = 4):
+  def Dense_Add_Block(self,net,level,features = 3, kernel = 3, kmap = 4):
     with tf.variable_scope("Dense_Block_%d"%level) as scope:
       # If net is multiple tensors, concat them.
       net = ops.delist(net)
@@ -180,7 +180,8 @@ class ANN:
 
       for n in range(kmap):
         # BN > RELU > CONV > DROPOUT, as per 100 Layers Tiramisu
-        out  = ops.batch_norm(ops.delist([net,ops.delist(outs)]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
+        out = ops.delist([net,ops.delist(outs)]) if n > 0 else net
+        # out  = ops.batch_norm(ops.delist([net,ops.delist(outs)]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
         out  = ops.relu(out)
         out  = tf.layers.dropout(out,FLAGS.keep_prob)
         out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
@@ -278,6 +279,7 @@ class ANN:
     with tf.variable_scope("IDWT") as scope:
       self.w_x, self.wav_logs = wavelets.idwt(pred_dwt, wavelet)
     self.wav_logs = ops.relu(self.wav_logs)
+    self.wav_logs = tf.reshape(self.wav_logs,self.imgs.get_shape().as_list())
 
     self.summary_wavelet("3_Pred_Wav",pred_dwt)
     self.summary_wavelet("3_GT_Wav",gt_dwt)
@@ -291,6 +293,8 @@ class ANN:
     self.da_logs = self.Dense_Add_Block(self.wav_logs   ,1)
     self.da_logs = self.Dense_Add_Block(self.da_logs,2)
     self.da_logs = ops.relu(self.da_logs)
+    self.summary_image("3_DA_Result"  ,self.da_logs  )
+    self.summary_image("3_DA_Full_Error"  ,self.gen_aerr(self.da_logs,self.imgs))
 
   # END INFERENCE
 

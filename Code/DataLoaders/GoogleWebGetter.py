@@ -52,6 +52,7 @@ class DataGenerator:
       file_list = [f.replace('.jpg' ,'') for f in os.listdir(self.img_directory ) if f.endswith('.jpg' )]
     except FileNotFoundError:
       os.mkdir(self.img_directory)
+      file_list = [f.replace('.jpg' ,'') for f in os.listdir(self.img_directory ) if f.endswith('.jpg' )]
     # If split lists don't exist as files, create them. Shuffle values, then
     # write to test,train,val.lst
     if (not os.path.isfile(base_directory + 'test.lst' ) or
@@ -166,9 +167,9 @@ class DataGenerator:
         # Delete the bad file from the internal list
         del self.internal_list[self.num_seen + x]
         # Start a new file downloading.
-        newDLer = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory)
-        newDLer.start()
-        self.downloaders.append(newDLer)
+        # newDLer = DownloaderProcess(self.in_queue, DATASET_TARGET_SIZE - len(self.internal_list),self.img_directory)
+        # newDLer.start()
+        # self.downloaders.append(newDLer)
 
 
         # Resize the number of examples in the current list.

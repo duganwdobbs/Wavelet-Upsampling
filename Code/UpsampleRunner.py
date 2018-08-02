@@ -13,8 +13,8 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 if   platform.system() == 'Windows':
-  flags.DEFINE_string ('base_dir', 'E:/Wavelet-Upsampling/'      , 'Base os specific DIR')
-  flags.DEFINE_string ('code_dir', 'E:/Wavelet-Upsampling/Code/', 'Location of the code files.')
+  flags.DEFINE_string ('base_dir', 'D:/Wavelet-Upsampling/'      , 'Base os specific DIR')
+  flags.DEFINE_string ('code_dir', 'D:/Wavelet-Upsampling/Code/', 'Location of the code files.')
 elif platform.system() == 'Linux':
   flags.DEFINE_string ('base_dir', '/data0/ddobbs/Wavelet-Upsampling/'      , 'Base os specific DIR')
   flags.DEFINE_string ('code_dir', '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
@@ -110,7 +110,7 @@ def main(_):
     this_met = .01
 
     best = 0
-    x = 2
+    x = 0
 
 
     while(this_met < best_met or overlap < max_lap):
