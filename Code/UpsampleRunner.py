@@ -41,7 +41,7 @@ def train(train_run = True, restore = False,epoch = 0):
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = 1
   else:
-    FLAGS.batch_size = 2
+    FLAGS.batch_size = 4
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = .8
 
@@ -110,7 +110,7 @@ def main(_):
     this_met = .01
 
     best = 0
-    x = 0
+    x = 1
 
 
     while(this_met < best_met or overlap < max_lap):

@@ -77,9 +77,7 @@ class ANN:
   # END __init__
 
   def inputs(self):
-    # TODO: Define Inputs
     self.imgs      = tf.placeholder(tf.float32,[FLAGS.batch_size,FLAGS.imgH,FLAGS.imgW,3]) / 255
-
   # END INPUTS
 
   '''-----------------------------HELPER FUNCTIONS----------------------------'''
@@ -192,9 +190,6 @@ class ANN:
 
       return outs[-1]
 
-
-  '''-------------------------END HELPER FUNCTIONS----------------------------'''
-
   def encoder_decoder(self,net,out_features,name="Encoder_Decoder"):
     with tf.variable_scope(name) as scope:
       trainable   = True
@@ -246,11 +241,14 @@ class ANN:
       err = tf.expand_dims(err,-1)
       return err
 
+
+  '''-------------------------END HELPER FUNCTIONS----------------------------'''
+
   def inference(self):
     pywt_wavelet = "db2"
     wavelet = eval("wavelets." + pywt_wavelet)
 
-    # Resize and norm images
+    # Resize images
     self.re_img = self.imgs[:,::2,::2,:]
 
     with tf.variable_scope("DWT") as scope:
@@ -261,7 +259,6 @@ class ANN:
       self.gt_detail = gt_dwt[1,1,:,:,:,:]
 
     # Average Decomposition, what we're given
-    # avg_scale = tf.Variable(2, name = "avg_scale",dtype = tf.float32)
     self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Gen")
     # Low pass Width
     self.pred_low_w  = self.encoder_decoder(self.re_img,3,"Low_w_Gen")
@@ -270,11 +267,12 @@ class ANN:
     # High Pass
     self.pred_detail = self.encoder_decoder(self.re_img,3,"Detail_Gen")
 
-    pred_dwt = tf.stack(
-    [ tf.stack([self.pred_avg   , self.pred_low_w ],-1),
-      tf.stack([self.pred_low_h , self.pred_detail],-1) ]
-            ,-1)
-    pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
+    with tf.variable_scope('Wavelet_Formatting') as scope:
+      pred_dwt = tf.stack(
+      [ tf.stack([self.pred_avg   , self.pred_low_w ],-1),
+        tf.stack([self.pred_low_h , self.pred_detail],-1) ]
+              ,-1)
+      pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
 
     with tf.variable_scope("IDWT") as scope:
       self.w_x, self.wav_logs = wavelets.idwt(pred_dwt, wavelet)
