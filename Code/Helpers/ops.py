@@ -387,7 +387,7 @@ def count_huber_loss(labels,logits):
 def count_rmse(labels,logits,name = "RSME_Loss"):
   with tf.variable_scope(name) as scope:
     rmse = tf.sqrt(1 / FLAGS.batch_size * tf.reduce_sum(((logits - labels) ** 2)))
-  tf.summary.scalar("RMSE",rmse)
+  tf.summary.scalar(name,rmse)
   return rmse
 
 def count_rel_rmse(labels,logits):
@@ -487,5 +487,5 @@ def charbonnier_loss(labels, logits, mask=None, truncate=None, alpha=0.45, beta=
         if truncate is not None:
             error = tf.minimum(error, truncate)
         err = tf.reduce_sum(error) / normalization
-        tf.summary.scalar(name,err)
-        return err
+    tf.summary.scalar(name,err)
+    return err
