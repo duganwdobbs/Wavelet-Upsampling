@@ -38,10 +38,10 @@ def make_decomposition_filter(wavelet):
 def dwt(inputs, wavelet, padding_mode = "periodization"):
     wavelet_length = len(wavelet)
     wavelet_pad = wavelet_length-2
-    channels    = tf.shape(inputs)[3]
-    height      = tf.shape(inputs)[1]
-    width       = tf.shape(inputs)[2]
-    filter      = make_decomposition_filter(wavelet)
+    channels = tf.shape(inputs)[3]
+    height = tf.shape(inputs)[1]
+    width = tf.shape(inputs)[2]
+    filter = make_decomposition_filter(wavelet)
 
     inputs = tf.transpose(inputs, [0, 3, 1, 2])
     # now [batch, channel, height, width]
@@ -49,7 +49,20 @@ def dwt(inputs, wavelet, padding_mode = "periodization"):
     inputs = tf.reshape(inputs, [-1, width, 1])
     # now [batch channel height, width, 1]
 
-    if padding_mode is "periodization": # manually wrap
+    if wavelet_pad == 0:
+        w_x = tf.nn.conv1d(inputs, filters = filter, stride = 2, padding = 'VALID')
+        # [b c h, w, pass]
+        w_x = tf.reshape(w_x, [-1, height, tf.cast(width/2, tf.int32), 2])
+        # [b c, h, w, pass]
+        w_x = tf.transpose(w_x, [0, 2, 3, 1])
+        # [b c, w, pass, height]
+        w_x = tf.reshape(w_x, [-1, height, 1])
+        # [b c w pass, height, 1]
+        w_x_y = tf.nn.conv1d(w_x, filters = filter, stride = 2, padding = 'VALID')
+        # [b c w w_pass, height, h_pass]
+        w_x_y = tf.reshape(w_x_y, [-1, channels, tf.cast(width/2, tf.int32), 2, tf.cast(height/2, tf.int32), 2])
+        # [b, c, w, w_pass, height, h_pass]
+    elif padding_mode is "periodization": # manually wrap
         p_wavelet_pad = int(wavelet_pad/2)
         left_pad_vals = inputs[:, -p_wavelet_pad:, :]
         right_pad_vals = inputs[:, :p_wavelet_pad, :]
@@ -139,7 +152,29 @@ def idwt(inputs, wavelet, padding_mode = "periodization"):
 
     filter = make_decomposition_filter(wavelet)
 
-    if padding_mode is "periodization":
+    if wavelet_pad == 0:
+        w_x = tf.contrib.nn.conv1d_transpose(inputs,
+                                             filter = filter,
+                                             output_shape = [examples*channels*width*2, dest_height, 1],
+                                             stride = 2,
+                                             padding = "VALID")
+        # [b channel width w_pass, height, 1]
+        w_x = tf.reshape(w_x, [-1, tf.cast(width, tf.int32), 2, dest_height])
+        # [b channel, width, w_pass, height]
+        w_x = tf.transpose(w_x, [0, 3, 1, 2])
+        # [b channel, height, width, width_pass]
+        w_x = tf.reshape(w_x, [-1, tf.cast(width, tf.int32), 2])
+        # [b channel height, width, width_pass]
+
+        spatial = tf.contrib.nn.conv1d_transpose(w_x,
+                                                 filter = filter,
+                                                 output_shape = [examples*channels*dest_height, dest_width, 1],
+                                                 stride = 2,
+                                                 padding = "VALID")
+        # [b channels height, width, 1]
+        spatial = tf.reshape(spatial, [-1, channels, dest_height, dest_width])
+        # [b, channels, height, width]
+    elif padding_mode is "periodization":
         dest_width = width*2
         dest_height = height*2
         p_wavelet_pad = int(wavelet_pad/2)

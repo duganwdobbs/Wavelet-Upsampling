@@ -3,7 +3,7 @@
 
 # For image in Resized, resize using all interpolation tech
 from PIL import Image
-import os
+import os, cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,9 +14,14 @@ def str_remove(things_to_replace,str):
 def calc_error(im1,im2):
   im1 = np.asarray(im1)
   im2 = np.asarray(im2)
-
   err = np.abs(im1-im2)
   avg = np.average(err)
+  # print(np.sum(err) / (600*912*3))
+  # print(avg)
+  # cv2.imshow("im1",im1)
+  # cv2.imshow("im2",im2)
+  # cv2.waitKey(0)
+  # cv2.destroyAllWindows()
 
   return avg
 
@@ -66,15 +71,16 @@ for id in compare_list:
   img_letsenh  = img_letsenh.resize(upsize,Image.NEAREST )
 
   errors = {}
+  errors['nearest_err']  = calc_error(img_origin,img_nearest )
   errors['bilinear_err'] = calc_error(img_origin,img_bilinear)
   errors['bicubic_err']  = calc_error(img_origin,img_bicubic )
   errors['lanczos_err']  = calc_error(img_origin,img_lanczos )
-  errors['nearest_err']  = calc_error(img_origin,img_nearest )
   errors['wavsamp_err']  = calc_error(img_origin,img_wavsamp )
   errors['waifu2x_err']  = calc_error(img_origin,img_waifu2x )
   errors['letsenh_err']  = calc_error(img_origin,img_letsenh )
 
   keys = list(errors.keys())
   for key in keys:
-    print("%s: %.3f"%(key,errors[key]),end= ' ')
+    # print("%s: %.3f"%(key,errors[key]),end= ' ')
+    print("%.3f & "%(errors[key]),end= ' ')
   print()

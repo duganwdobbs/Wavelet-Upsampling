@@ -245,7 +245,7 @@ class ANN:
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def inference(self):
-    pywt_wavelet = "db2"
+    pywt_wavelet = "db1"
     wavelet = eval("wavelets." + pywt_wavelet)
 
     # Resize images
