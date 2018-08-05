@@ -318,7 +318,7 @@ class ANN:
     self.metrics = {"Wav_RMSE":wav_rmse,"Wav_Char":wav_char}
 
 
-  def optomize(self,loss,learning_rate = .0001):
+  def optomize(self,loss,learning_rate = .00001):
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
       # optomizer = tf.train.RMSPropOptimizer(learning_rate,decay = 0.9, momentum = 0.3)
