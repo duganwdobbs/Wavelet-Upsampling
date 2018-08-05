@@ -253,10 +253,10 @@ class ANN:
 
     with tf.variable_scope("DWT") as scope:
       gt_dwt = wavelets.dwt(self.imgs, wavelet)
-      self.gt_avg    = gt_dwt[0,0,:,:,:,:]
-      self.gt_low_w  = gt_dwt[0,1,:,:,:,:]
-      self.gt_low_h  = gt_dwt[1,0,:,:,:,:]
-      self.gt_detail = gt_dwt[1,1,:,:,:,:]
+      self.gt_avg    = gt_dwt[0,0]
+      self.gt_low_w  = gt_dwt[0,1]
+      self.gt_low_h  = gt_dwt[1,0]
+      self.gt_detail = gt_dwt[1,1]
 
     # Average Decomposition, what we're given
     self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Gen")
@@ -287,6 +287,20 @@ class ANN:
 
     self.summary_wavelet("3_Pred_Wav",pred_dwt)
     self.summary_wavelet("3_GT_Wav",gt_dwt)
+
+    with tf.variable_scope("Wav_Err_Gen") as scope:
+      wav_err = self.gen_aerr(gt_dwt,pred_dwt)
+      wav_avg_err = tf.reduce_sum(wav_err[0,0])
+      wav_wid_err = tf.reduce_sum(wav_err[0,1])
+      wav_hei_err = tf.reduce_sum(wav_err[1,0])
+      wav_det_err = tf.reduce_sum(wav_err[1,1])
+      tf.summary.scalar("wav_avg_err",wav_avg_err)
+      tf.summary.scalar("wav_wid_err",wav_wid_err)
+      tf.summary.scalar("wav_hei_err",wav_hei_err)
+      tf.summary.scalar("wav_det_err",wav_det_err)
+
+
+
     self.summary_wavelet("4_Error_Wav",self.gen_aerr(gt_dwt,pred_dwt))
 
   # END INFERENCE
@@ -304,7 +318,7 @@ class ANN:
     self.metrics = {"Wav_RMSE":wav_rmse,"Wav_Char":wav_char}
 
 
-  def optomize(self,loss,learning_rate = .001):
+  def optomize(self,loss,learning_rate = .0001):
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
       # optomizer = tf.train.RMSPropOptimizer(learning_rate,decay = 0.9, momentum = 0.3)
