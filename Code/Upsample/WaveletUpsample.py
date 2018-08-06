@@ -52,6 +52,7 @@ class ANN:
         self.inputs()
         print("\rSETTING UP %s INFERENCE                 "%self.net_name,end='')
         self.inference()
+        self.wavelet_GAN_builder()
         print("\rSETTING UP %s METRICS                   "%self.net_name,end='')
         self.build_metrics()
 
@@ -218,6 +219,84 @@ class ANN:
       net = ops.conv2d(net,out_features,3,name='Decomp_Formatter',activation = None)
       return net
 
+  def discriminator(self,imgs,name = None):
+    '''
+    This is a standard discriminator network that uses dense blocks followed by
+      pooling in order to generate a logit to see if the image is real or fake.
+    Parameters:
+      imgs          : The images to determine if real or fake.
+      name          : This The name of the discriminator
+
+    Returns:
+      net           : The logits for the current images. (Value between 0-1)
+    '''
+    with tf.variable_scope(name) as scope:
+      b,h,w,c = imgs.get_shape().as_list()
+      net = imgs
+      strides = util.factors(h,w)
+      for x in range(len(strides)):
+        stride = strides[x]
+        # Discard the skip connnection as we are just using the downsampled data
+        _,net = Encoder(net,2+x,3,stride,x)
+      # Net will now be a B,1,1,#
+      net = tf.layers.dense(net,100,activation=ops.relu)
+      # Logit will be
+      net = tf.layers.dense(net,1,activation = tf.nn.sigmoid)
+      return net
+
+  def discriminator_loss(self,logs,name):
+    '''
+    This method serves to generate GAN loss.
+    Parameters:
+      logs          : The logits to generate loss on. Shape [Real/Fake,B,H,W,C]
+      name          : This The name of the module loss is being built for
+
+    Returns:
+      disc_loss     : The discriminator loss to minimize
+      gen_loss      : The loss to add to the generator
+    '''
+    with tf.variable_scope(name) as scope:
+      disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(logs[1]))
+      gen_loss  = -tf.reduce_mean(tf.log(logs[1]))
+    tf.summary.scalar(name+'_disc_loss',disc_loss)
+    tf.summary.scalar(name+'_gen_loss',gen_loss)
+    return disc_loss,gen_loss
+
+  def discriminator_builder(self,real,fake,name):
+    '''
+    This method serves to build a discriminator for real and fake logits
+    Parameters:
+      real          : The real logits
+      fake          : The fake logits
+      name          : The name of the discriminator
+
+    Returns:
+      disc_loss     : The discriminator loss to minimize
+      gen_loss      : The loss to add to the generator
+    '''
+    with tf.variable_scope(name) as scope:
+      disc_imgs = tf.concat([real,fake],0)
+      disc_logs = self.discriminator(disc_imgs,name=name)
+      b,h,w,c = disc_logs.get_shape().as_list()
+      disc_real_logs = disc_logs[0   :b//2]
+      disc_fake_logs = disc_logs[b//2:    ]
+      disc_logs = tf.stack([disc_real_logs,disc_fake_logs])
+      # Shape objects to [Real/Fake,B,H,W,C]
+      disc_logs = tf.transpose(disc_logs,(4,0,1,2,3))
+    return discriminator_loss(disc_logs,name)
+
+  def wavelet_GAN_builder(self):
+    real_wav = self.gt_dwt
+    fake_wav = self.pred_dwt
+
+    disc_avg_loss,gen_avg_loss = discriminator_builder(real_wav[0,0],fake_wav[0,0],name='Avg_Discriminator')
+    disc_wid_loss,gen_wid_loss = discriminator_builder(real_wav[0,1],fake_wav[0,1],name='Wid_Discriminator')
+    disc_hei_loss,gen_hei_loss = discriminator_builder(real_wav[1,0],fake_wav[1,0],name='Hei_Discriminator')
+    disc_det_loss,gen_det_loss = discriminator_builder(real_wav[1,1],fake_wav[1,1],name='Det_Discriminator')
+
+    self.disc_loss = tf.reduce_mean([disc_avg_loss,disc_wid_loss,disc_hei_loss,disc_det_loss])
+    self.gen_loss  = tf.reduce_mean([gen_avg_loss ,gen_wid_loss, gen_hei_loss, gen_det_loss ])
+
   def summary_image(self,name,img):
     with tf.variable_scope(name) as scope:
       img = img + tf.minimum(0.0,tf.reduce_min(img))
@@ -245,34 +324,34 @@ class ANN:
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def inference(self):
-    pywt_wavelet = "db1"
+    pywt_wavelet = "db2"
     wavelet = eval("wavelets." + pywt_wavelet)
 
     # Resize images
     self.re_img = self.imgs[:,::2,::2,:]
 
     with tf.variable_scope("DWT") as scope:
-      gt_dwt = wavelets.dwt(self.imgs, wavelet)
+      self.gt_dwt = wavelets.dwt(self.imgs, wavelet)
       self.gt_avg    = gt_dwt[0,0]
       self.gt_low_w  = gt_dwt[0,1]
       self.gt_low_h  = gt_dwt[1,0]
       self.gt_detail = gt_dwt[1,1]
 
     # Average Decomposition, what we're given
-    self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Gen")
+    self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Generator")
     # Low pass Width
-    self.pred_low_w  = self.encoder_decoder(self.re_img,3,"Low_w_Gen")
+    self.pred_low_w  = self.encoder_decoder(self.re_img,3,"Low_w_Generator")
     # Low pass Height
-    self.pred_low_h  = self.encoder_decoder(self.re_img,3,"Low_h_Gen")
+    self.pred_low_h  = self.encoder_decoder(self.re_img,3,"Low_h_Generator")
     # High Pass
-    self.pred_detail = self.encoder_decoder(self.re_img,3,"Detail_Gen")
+    self.pred_detail = self.encoder_decoder(self.re_img,3,"Detail_Generator")
 
     with tf.variable_scope('Wavelet_Formatting') as scope:
       pred_dwt = tf.stack(
       [ tf.stack([self.pred_avg   , self.pred_low_w ],-1),
         tf.stack([self.pred_low_h , self.pred_detail],-1) ]
               ,-1)
-      pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
+      self.pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
 
     with tf.variable_scope("IDWT") as scope:
       self.w_x, self.wav_logs = wavelets.idwt(pred_dwt, wavelet)
@@ -299,8 +378,6 @@ class ANN:
       tf.summary.scalar("wav_hei_err",wav_hei_err)
       tf.summary.scalar("wav_det_err",wav_det_err)
 
-
-
     self.summary_wavelet("4_Error_Wav",self.gen_aerr(gt_dwt,pred_dwt))
 
   # END INFERENCE
@@ -308,14 +385,17 @@ class ANN:
   def build_metrics(self):
     labels = self.imgs
     wav_rmse      = ops.count_rmse(labels,self.wav_logs,name = "Wav_RMSE")
-
     wav_char      = ops.charbonnier_loss(labels,self.wav_logs,name = "Wav_Char")
 
     # Not enabling L2 loss, as counting networks might not work well with it.
     # total_loss = l2loss(huber,l2 = True)
 
-    self.train = self.optomize(wav_char)
     self.metrics = {"Wav_RMSE":wav_rmse,"Wav_Char":wav_char}
+
+    disc_vars = [var for var in tf.trainable_variables() if 'Discriminator' in var.name]
+    gen_vars  = [var for var in tf.trainable_variables() if 'Generator'     in var.name]
+    self.train = (self.optomize(wav_char + self.gen_loss,gen_vars),self.optimize(self.disc_loss,disc_vars))
+
 
 
   def optomize(self,loss,learning_rate = None ):
