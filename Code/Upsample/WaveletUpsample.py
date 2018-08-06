@@ -332,10 +332,10 @@ class ANN:
 
     with tf.variable_scope("DWT") as scope:
       self.gt_dwt = wavelets.dwt(self.imgs, wavelet)
-      self.gt_avg    = gt_dwt[0,0]
-      self.gt_low_w  = gt_dwt[0,1]
-      self.gt_low_h  = gt_dwt[1,0]
-      self.gt_detail = gt_dwt[1,1]
+      self.gt_avg    = self.gt_dwt[0,0]
+      self.gt_low_w  = self.gt_dwt[0,1]
+      self.gt_low_h  = self.gt_dwt[1,0]
+      self.gt_detail = self.gt_dwt[1,1]
 
     # Average Decomposition, what we're given
     self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Generator")
@@ -364,11 +364,11 @@ class ANN:
     self.summary_image("2_Resized"    ,self.re_img)
     self.summary_image("2_Full_Error" ,self.gen_aerr(self.wav_logs,self.imgs))
 
-    self.summary_wavelet("3_Pred_Wav",pred_dwt)
-    self.summary_wavelet("3_GT_Wav",gt_dwt)
+    self.summary_wavelet("3_Pred_Wav",self.pred_dwt)
+    self.summary_wavelet("3_GT_Wav",self.gt_dwt)
 
     with tf.variable_scope("Wav_Err_Gen") as scope:
-      wav_err = self.gen_aerr(gt_dwt,pred_dwt)
+      wav_err = self.gen_aerr(self.gt_dwt,self.pred_dwt)
       wav_avg_err = tf.reduce_sum(wav_err[0,0])
       wav_wid_err = tf.reduce_sum(wav_err[0,1])
       wav_hei_err = tf.reduce_sum(wav_err[1,0])
