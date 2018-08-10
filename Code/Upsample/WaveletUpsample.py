@@ -15,14 +15,14 @@ FLAGS = flags.FLAGS
 # A network has:
 # Session / Graph
 # Inputs
-# TODO: Inferece
-# TODO: Logits
-# TODO: Metrics
-# TODO: Trainer
+# Inferece
+# Logits
+# Metrics
+# Trainer
 # Saver
 # Runner
-# TODO: MORE SUMMARIES
-# TODO: DIRECTORIES
+# MORE SUMMARIES
+# DIRECTORIES
 
 class ANN:
   def __init__(self,training,split,restore,timestr):
@@ -32,7 +32,6 @@ class ANN:
       config = tf.ConfigProto(allow_soft_placement = True)
       config.gpu_options.allow_growth = True
       self.sess        = tf.Session(config = config)
-
       self.global_step = tf.Variable(0,name='global_step',trainable = False)
       self.training    = training
       self.restore     = restore
@@ -52,7 +51,8 @@ class ANN:
         self.inputs()
         print("\rSETTING UP %s INFERENCE                 "%self.net_name,end='')
         self.inference()
-        self.wavelet_GAN_builder()
+        # self.Image_GAN_builder()
+        self.Wavelet_GAN_Builder()
         print("\rSETTING UP %s METRICS                   "%self.net_name,end='')
         self.build_metrics()
 
@@ -62,7 +62,6 @@ class ANN:
       print("\rSETTING UP %s SAVER                       "%self.net_name,end='')
       self.build_saver()
 
-      self.step       = tf.train.global_step(self.sess,self.global_step) if self.training else 0
       self.losses     = []
       self.net_losses = []
       self.logging_ids= []
@@ -71,10 +70,10 @@ class ANN:
         self.save()
       # If you want a copy of the code in your epoch folders, uncomment and change directory for this next line.
       # shutil.copytree(FLAGS.base_dir + '../Binalab-Seagrass/Code/DuganNetV6',self.log_dir+'bkupcode/')
+      self.step = tf.train.global_step(self.sess,self.global_step) if self.training else 0
       print("\rNETWORK CLASS %s SETUP... PROCEEDING                       "%self.net_name,end='')
       if not restore:
         util.get_params()
-
   # END __init__
 
   def inputs(self):
@@ -97,8 +96,8 @@ class ANN:
       for n in range(kmap):
         # BN > RELU > CONV > DROPOUT, as per 100 Layers Tiramisu
         out  = ops.batch_norm(ops.delist([net,outs]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
-        out  = ops.relu(out)
         out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
+        out  = tf.nn.leaky_relu(out)
         out  = tf.layers.dropout(out,FLAGS.keep_prob)
         outs = tf.concat([outs,out],-1,name='%d_cat'%n) if n > 0 else out
 
@@ -108,8 +107,8 @@ class ANN:
     with tf.variable_scope("Transition_Down_%d"%level) as scope:
       net  = ops.delist(net)
       # Differentiation from 100 Layers: No 1x1 convolution here.
-      net  = tf.layers.dropout(net,FLAGS.keep_prob)
-      net  = ops.max_pool(net,stride,stride)
+      # net  = tf.layers.dropout(net,FLAGS.keep_prob)
+      net  = ops.avg_pool(net,stride,stride)
       return net
 
   def Transition_Up(self,net,stride,level):
@@ -191,7 +190,7 @@ class ANN:
 
       return outs[-1]
 
-  def encoder_decoder(self,net,out_features,name="Encoder_Decoder"):
+  def Encoder_Decoder(self,net,out_features,name="Encoder_Decoder"):
     with tf.variable_scope(name) as scope:
       trainable   = True
       kmaps       = [ 2, 3]
@@ -219,13 +218,23 @@ class ANN:
       net = ops.conv2d(net,out_features,3,name='Decomp_Formatter',activation = None)
       return net
 
-  def discriminator(self,imgs,name = None):
+  def Simple_Wavelet_Generator(self,net,out_features,name = 'Simple_Wavelet_Generator'):
+    with tf.variable_scope(name) as scope:
+      net = ops.conv2d(net,16           ,5,stride=1,activation=tf.nn.leaky_relu,name='conv1')
+      net = ops.conv2d(net,32           ,5,stride=1,activation=tf.nn.leaky_relu,name='conv2')
+      # net = ops.conv2d(net,32          ,3,stride=1,activation=tf.nn.leaky_relu,name='conv3')
+      # net = ops.conv2d(net,64          ,3,stride=1,activation=tf.nn.leaky_relu,name='conv4')
+
+      net = ops.conv2d(net,out_features,3,stride=1,activation=None,name='convEnd')
+      return net
+
+  def Discriminator(self,imgs,name = None):
     '''
-    This is a standard discriminator network that uses dense blocks followed by
+    This is a standard Discriminator network that uses dense blocks followed by
       pooling in order to generate a logit to see if the image is real or fake.
     Parameters:
       imgs          : The images to determine if real or fake.
-      name          : This The name of the discriminator
+      name          : This The name of the Discriminator
 
     Returns:
       net           : The logits for the current images. (Value between 0-1)
@@ -234,17 +243,19 @@ class ANN:
       b,h,w,c = imgs.get_shape().as_list()
       net = imgs
       strides = util.factors(h,w)
-      for x in range(len(strides)):
+      for x in range(len(strides[:-1])):
         stride = strides[x]
         # Discard the skip connnection as we are just using the downsampled data
-        _,net = Encoder(net,2+x,3,stride,x)
-      # Net will now be a B,1,1,#
+        _,net = self.Encoder(net,2+x,3,stride,x)
+      net = ops.conv2d(net,16,3)
+      net = tf.reshape(net,(FLAGS.batch_size*2,-1))
+      # Net will now be a B,#
       net = tf.layers.dense(net,100,activation=ops.relu)
       # Logit will be
       net = tf.layers.dense(net,1,activation = tf.nn.sigmoid)
       return net
 
-  def discriminator_loss(self,logs,name):
+  def Discriminator_Loss(self,logs,name):
     '''
     This method serves to generate GAN loss.
     Parameters:
@@ -252,50 +263,100 @@ class ANN:
       name          : This The name of the module loss is being built for
 
     Returns:
-      disc_loss     : The discriminator loss to minimize
+      disc_loss     : The Discriminator loss to minimize
       gen_loss      : The loss to add to the generator
     '''
     with tf.variable_scope(name) as scope:
-      disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(logs[1]))
+      noise_var = .8
+      eps = 1e-5
+      logs = logs * noise_var + tf.random_uniform(shape = logs.get_shape(),minval = eps,maxval = (1-noise_var))
+      disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(1 - logs[1]))
       gen_loss  = -tf.reduce_mean(tf.log(logs[1]))
-    tf.summary.scalar(name+'_disc_loss',disc_loss)
-    tf.summary.scalar(name+'_gen_loss',gen_loss)
+    tf.summary.scalar('disc_loss',disc_loss)
+    tf.summary.scalar('gen_loss',gen_loss)
     return disc_loss,gen_loss
 
-  def discriminator_builder(self,real,fake,name):
+  def Wavelet_Discriminator_Builder(self,real,fake,name):
     '''
-    This method serves to build a discriminator for real and fake logits
+    This method serves to build a Discriminator for real and fake logits
     Parameters:
       real          : The real logits
       fake          : The fake logits
-      name          : The name of the discriminator
+      name          : The name of the Discriminator
 
     Returns:
-      disc_loss     : The discriminator loss to minimize
+      disc_loss     : The Discriminator loss to minimize
       gen_loss      : The loss to add to the generator
     '''
     with tf.variable_scope(name) as scope:
       disc_imgs = tf.concat([real,fake],0)
-      disc_logs = self.discriminator(disc_imgs,name=name)
-      b,h,w,c = disc_logs.get_shape().as_list()
+      b,h,w,c = self.imgs.get_shape().as_list()
+      h = h // 2
+      w = w // 2
+      disc_imgs = tf.reshape(disc_imgs,(b*2,h,w,c))
+      disc_imgs = disc_imgs / (tf.reduce_max(disc_imgs)/2)-1
+      disc_logs = self.Discriminator(disc_imgs,name=name)
+      b,c       = disc_logs.get_shape().as_list()
+
       disc_real_logs = disc_logs[0   :b//2]
       disc_fake_logs = disc_logs[b//2:    ]
-      disc_logs = tf.stack([disc_real_logs,disc_fake_logs])
-      # Shape objects to [Real/Fake,B,H,W,C]
-      disc_logs = tf.transpose(disc_logs,(4,0,1,2,3))
-    return discriminator_loss(disc_logs,name)
 
-  def wavelet_GAN_builder(self):
+      disc_logs = tf.stack([disc_real_logs,disc_fake_logs],-1)
+      # Shape objects to [B,H,W,C,Real/Fake]
+      disc_logs = tf.transpose(disc_logs,(2,0,1))
+      # Shape objects to [Real/Fake,B,H,W,C]
+      return self.Discriminator_Loss(disc_logs,name)
+
+  def Wavelet_GAN_Builder(self):
     real_wav = self.gt_dwt
     fake_wav = self.pred_dwt
 
-    disc_avg_loss,gen_avg_loss = discriminator_builder(real_wav[0,0],fake_wav[0,0],name='Avg_Discriminator')
-    disc_wid_loss,gen_wid_loss = discriminator_builder(real_wav[0,1],fake_wav[0,1],name='Wid_Discriminator')
-    disc_hei_loss,gen_hei_loss = discriminator_builder(real_wav[1,0],fake_wav[1,0],name='Hei_Discriminator')
-    disc_det_loss,gen_det_loss = discriminator_builder(real_wav[1,1],fake_wav[1,1],name='Det_Discriminator')
+    # disc_avg_loss,gen_avg_loss = self.Wavelet_Discriminator_Builder(real_wav[0,0],fake_wav[0,0],name='Avg_Discriminator')
+    disc_avg_loss,gen_avg_loss = (0,0)
+    disc_wid_loss,gen_wid_loss = self.Wavelet_Discriminator_Builder(real_wav[0,1],fake_wav[0,1],name='Wid_Discriminator')
+    disc_hei_loss,gen_hei_loss = self.Wavelet_Discriminator_Builder(real_wav[1,0],fake_wav[1,0],name='Hei_Discriminator')
+    disc_det_loss,gen_det_loss = self.Wavelet_Discriminator_Builder(real_wav[1,1],fake_wav[1,1],name='Det_Discriminator')
 
-    self.disc_loss = tf.reduce_mean([disc_avg_loss,disc_wid_loss,disc_hei_loss,disc_det_loss])
-    self.gen_loss  = tf.reduce_mean([gen_avg_loss ,gen_wid_loss, gen_hei_loss, gen_det_loss ])
+    with tf.variable_scope("Total_Gan_Losses") as scope:
+      self.disc_loss = tf.reduce_mean([disc_avg_loss,disc_wid_loss,disc_hei_loss,disc_det_loss])
+      tf.summary.scalar("Total_Disc_Loss",self.disc_loss)
+      self.gen_loss  = tf.reduce_mean([gen_avg_loss ,gen_wid_loss, gen_hei_loss, gen_det_loss ])
+      tf.summary.scalar("Total_Gen_Loss",self.gen_loss)
+
+  def Image_Discriminator_builder(self,real,fake,name):
+    '''
+    This method serves to build a Discriminator for real and fake logits
+    Parameters:
+      real          : The real logits
+      fake          : The fake logits
+      name          : The name of the Discriminator
+
+    Returns:
+      disc_loss     : The Discriminator loss to minimize
+      gen_loss      : The loss to add to the generator
+    '''
+    with tf.variable_scope(name) as scope:
+      disc_imgs = tf.concat([real,fake],0)
+      b,h,w,c   = self.imgs.get_shape().as_list()
+      disc_imgs = tf.reshape(disc_imgs,(b*2,h,w,c))
+      disc_logs = self.Discriminator(disc_imgs,name=name)
+      b,h,w,c   = disc_logs.get_shape().as_list()
+      disc_real_logs = disc_logs[0   :b//2]
+      disc_fake_logs = disc_logs[b//2:    ]
+      disc_logs = tf.stack([disc_real_logs,disc_fake_logs],-1)
+      # Shape objects to [B,H,W,C,Real/Fake]
+      disc_logs = tf.transpose(disc_logs,(4,0,1,2,3))
+      # Shape objects to [Real/Fake,B,H,W,C]
+      return self.Discriminator_Loss(disc_logs,name)
+
+  def Image_GAN_builder(self):
+    real_img = self.imgs
+    fake_img = self.wav_logs
+
+    self.disc_loss,self.gen_loss = self.Image_Discriminator_builder(real_img,fake_img,name='FullImgDiscriminator')
+
+    tf.summary.scalar("Total_Disc_Loss",self.disc_loss)
+    tf.summary.scalar("Total_Gen_Loss",self.gen_loss)
 
   def summary_image(self,name,img):
     with tf.variable_scope(name) as scope:
@@ -320,7 +381,6 @@ class ANN:
       err = tf.expand_dims(err,-1)
       return err
 
-
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def inference(self):
@@ -338,13 +398,13 @@ class ANN:
       self.gt_detail = self.gt_dwt[1,1]
 
     # Average Decomposition, what we're given
-    self.pred_avg    = self.encoder_decoder(self.re_img,3,"Avg_Generator")
+    self.pred_avg    = self.Simple_Wavelet_Generator(self.re_img,3,"Avg_Generator")
     # Low pass Width
-    self.pred_low_w  = self.encoder_decoder(self.re_img,3,"Low_w_Generator")
+    self.pred_low_w  = self.Encoder_Decoder(self.re_img,3,"Low_w_Generator")
     # Low pass Height
-    self.pred_low_h  = self.encoder_decoder(self.re_img,3,"Low_h_Generator")
+    self.pred_low_h  = self.Encoder_Decoder(self.re_img,3,"Low_h_Generator")
     # High Pass
-    self.pred_detail = self.encoder_decoder(self.re_img,3,"Detail_Generator")
+    self.pred_detail = self.Encoder_Decoder(self.re_img,3,"Detail_Generator")
 
     with tf.variable_scope('Wavelet_Formatting') as scope:
       pred_dwt = tf.stack(
@@ -354,7 +414,7 @@ class ANN:
       self.pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
 
     with tf.variable_scope("IDWT") as scope:
-      self.w_x, self.wav_logs = wavelets.idwt(pred_dwt, wavelet)
+      self.w_x, self.wav_logs = wavelets.idwt(self.pred_dwt, wavelet)
     self.wav_logs = ops.relu(self.wav_logs)
     self.wav_logs = tf.reshape(self.wav_logs,self.imgs.get_shape().as_list())
 
@@ -378,8 +438,7 @@ class ANN:
       tf.summary.scalar("wav_hei_err",wav_hei_err)
       tf.summary.scalar("wav_det_err",wav_det_err)
 
-    self.summary_wavelet("4_Error_Wav",self.gen_aerr(gt_dwt,pred_dwt))
-
+    self.summary_wavelet("4_Error_Wav",self.gen_aerr(self.gt_dwt,self.pred_dwt))
   # END INFERENCE
 
   def build_metrics(self):
@@ -394,27 +453,42 @@ class ANN:
 
     disc_vars = [var for var in tf.trainable_variables() if 'Discriminator' in var.name]
     gen_vars  = [var for var in tf.trainable_variables() if 'Generator'     in var.name]
-    self.train = (self.optomize(wav_char + self.gen_loss,gen_vars),self.optimize(self.disc_loss,disc_vars))
+
+    disc_l2 = ops.l2loss(loss_vars = disc_vars, l2=True)
+    gen_l2  = ops.l2loss(loss_vars = gen_vars , l2=True)
+
+    total_disc_loss = self.disc_loss + disc_l2
+    total_gen_loss  = wav_char + self.gen_loss * .85 + gen_l2
 
 
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step),self.optomize(total_disc_loss,disc_vars,learning_rate = .0007))
+  # END BUILD_METRICS
 
-  def optomize(self,loss,learning_rate = None ):
+  def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):
     learning_rate = FLAGS.learning_rate if learning_rate is None else learning_rate
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
       # optomizer = tf.train.RMSPropOptimizer(learning_rate,decay = 0.9, momentum = 0.3)
       optomizer = tf.train.AdamOptimizer(learning_rate,epsilon = 1e-5)
-      train     = optomizer.minimize(loss,self.global_step)
+      train     = optomizer.minimize(loss,global_step)
       return train
   # END OPTOMIZE
 
   def build_saver(self):
+    if self.restore or not self.training:
+      try:
+        if not FLAGS.restore_disc:
+          raise KeyError
+        self.saver= tf.train.Saver()
+        self.saver.restore(self.sess,tf.train.latest_checkpoint(FLAGS.run_dir,latest_filename = self.save_name))
+      except:
+        print('\rDISCRIMM VARS NOT LOADED... TRYING GEN ONLY!')
+        gen_vars  = [var for var in tf.global_variables() if 'Discriminator' not in var.name and 'Adam' not in var.name]
+        self.saver     = tf.train.Saver(gen_vars)
+        self.saver.restore(self.sess,tf.train.latest_checkpoint(FLAGS.run_dir,latest_filename = self.save_name))
     self.saver     = tf.train.Saver()
     self.summaries = tf.summary.merge_all()
     self.writer    = tf.summary.FileWriter(self.log_dir,self.sess.graph)
-
-    if self.restore or not self.training:
-      self.saver.restore(self.sess,tf.train.latest_checkpoint(FLAGS.run_dir,latest_filename = self.save_name))
   # END SAVER
 
   def save(self,step=None):
@@ -441,10 +515,10 @@ class ANN:
       _metrics,summaries = self.sess.run(test_op,feed_dict = fd)
       # If we're using advanced tensorboard logging, this runs.
       if FLAGS.adv_logging:
-        self.writer.add_run_metadata(run_metadata,'step%d'%step)
+        self.writer.add_run_metadata(run_metadata,'step%d'%tf.train.global_step(self.sess,self.global_step))
 
       # Write the summaries to tensorboard
-      self.writer.add_summary(summaries,self.step)
+      self.writer.add_summary(summaries,tf.train.global_step(self.sess,self.global_step))
 
       self.logging_ids.append(_ids)
       self.losses.append(_metrics['DA_Char'])
@@ -456,14 +530,14 @@ class ANN:
 
       # If we're using advanced tensorboard logging, this runs.
       if FLAGS.adv_logging:
-        self.writer.add_run_metadata(run_metadata,'step%d'%step)
+        self.writer.add_run_metadata(run_metadata,'step%d'%tf.train.global_step(self.sess,self.global_step))
 
       # Write the summaries to tensorboard
-      self.writer.add_summary(summaries,self.step)
+      self.writer.add_summary(summaries,tf.train.global_step(self.sess,self.global_step))
 
       # This is a model saving step.
       if self.step % 100 == 0:
-        self.save(self.step)
+        self.save(self.global_step)
 
     # If we're not testing or logging, just train.
     else:

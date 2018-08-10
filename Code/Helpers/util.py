@@ -122,6 +122,7 @@ def s_factors(n):
   return factors
 
 def factors(a,b):
+  a_= s_factors(a)
   a = s_factors(a)
   b = s_factors(b)
   c = []
@@ -129,7 +130,19 @@ def factors(a,b):
     if a[x] in b:
       c.append(a[x])
       b.remove(a[x])
+      a_.remove(a[x])
+
+  if len(a_) > len(b):
+    for x in range(len(a_)):
+      val = 1 if x >= len(b) else b[x]
+      c.append((a_[x],val))
+  else:
+    for x in range(len(b)):
+      val = 1 if x >= len(a_) else a_[x]
+      c.append((val,b[x]))
+
   return c
+
 
 # Generates True / False labels in the shape of [#Batch][2], where 0 is false,
 # and 1 is true.

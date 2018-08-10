@@ -194,7 +194,7 @@ def cmat(labels_flat,logits_flat):
       cmat_sum = tf.add(cmat,cmat_sum)
     return cmat_sum
 
-def l2loss(loss,loss_vars = None,l2 = None):
+def l2loss(loss = None,loss_vars = None,l2 = None):
   if l2 is None:
     l2 = FLAGS.l2_loss
   if l2:
@@ -203,8 +203,11 @@ def l2loss(loss,loss_vars = None,l2 = None):
       l2 = tf.add_n([tf.nn.l2_loss(var) for var in loss_vars if 'bias' not in var.name])
       l2 = tf.scalar_mul(.0002,l2)
       tf.summary.scalar('L2_Loss',l2)
-      loss = tf.add(loss,l2)
-      tf.summary.scalar('Total_Loss',loss)
+      if loss is not None:
+        loss = tf.add(loss,l2)
+        tf.summary.scalar('Total_Loss',loss)
+      else:
+        loss = l2
   return loss
 
 # A log loss for using single class heat map
@@ -386,7 +389,7 @@ def count_huber_loss(labels,logits):
 
 def count_rmse(labels,logits,name = "RSME_Loss"):
   with tf.variable_scope(name) as scope:
-    rmse = tf.sqrt(1 / FLAGS.batch_size * tf.reduce_sum(((logits - labels) ** 2)))
+    rmse = tf.reduce_mean(tf.sqrt(1 / FLAGS.batch_size * ((logits - labels) ** 2)))
   tf.summary.scalar(name,rmse)
   return rmse
 

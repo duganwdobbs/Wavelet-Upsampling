@@ -19,12 +19,14 @@ elif platform.system() == 'Linux':
   flags.DEFINE_string ('base_dir', '/data0/ddobbs/Wavelet-Upsampling/'      , 'Base os specific DIR')
   flags.DEFINE_string ('code_dir', '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
 
-flags.DEFINE_boolean('adv_logging' ,False,'If we log metadata and histograms')
-flags.DEFINE_boolean('l2_loss' ,False,'If we use L2 loss')
+flags.DEFINE_boolean('adv_logging'  ,False,'If we log metadata and histograms')
+flags.DEFINE_boolean('l2_loss'      ,True,'If we use L2 loss')
+flags.DEFINE_boolean('restore'      ,False,'If we use an old network state.')
+flags.DEFINE_boolean('restore_disc' ,True,'If we restore discriminator vars.')
 flags.DEFINE_integer('num_epochs'       , 1                   ,'Number of epochs to run trainer, none for limit by steps.')
 flags.DEFINE_integer('batch_size'       , 4                  ,'Batch size for training.')
 flags.DEFINE_float  ('keep_prob'        , .9                 ,'A variable to use for dropout percentage. (Dont dropout during testing!)')
-flags.DEFINE_float  ('learning_rate'    , .00001                ,'A variable to use for initial learning rate.')
+flags.DEFINE_float  ('learning_rate'    , .001                ,'A variable to use for initial learning rate.')
 flags.DEFINE_string ('run_dir'    , FLAGS.base_dir  + 'network_log/'  ,'Location to store the Tensorboard Output')
 flags.DEFINE_string ('train_dir'  , FLAGS.base_dir                    ,'Location of the tfrecord files.')
 flags.DEFINE_string ('data_dir'   , FLAGS.base_dir           ,'Location of the training / testing / validation files.')
@@ -42,7 +44,7 @@ def train(train_run = True, restore = False,epoch = 0):
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = 1
   else:
-    FLAGS.batch_size = 4
+    FLAGS.batch_size = 3
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = .8
 
@@ -58,8 +60,6 @@ def train(train_run = True, restore = False,epoch = 0):
   threads        = tf.train.start_queue_runners(sess = net.sess, coord = coord)
   stfstr = 'TRAINING' if train_run else 'TESTING'
   print("\rSTARTING %s...                                        "%stfstr,end='')
-
-  step = 0
 
   try:
     while not coord.should_stop():
@@ -87,17 +87,14 @@ def train(train_run = True, restore = False,epoch = 0):
   net.close()
   return cmat,losses
 
-def reload():
-
-  cmat = train(train_run = False, restore = False,epoch = 1)
-
 def main(_):
   run_best = 0
   best = 0
 
   # Remove tensorlogs
   try:
-    shutil.rmtree(FLAGS.run_dir + 'tensorlogs/')
+    if not FLAGS.restore:
+      shutil.rmtree(FLAGS.run_dir + 'tensorlogs/')
   except FileNotFoundError:
     pass
 
@@ -111,7 +108,7 @@ def main(_):
     this_met = .01
 
     best = 0
-    x = 1
+    x = 1 if FLAGS.restore else 0
 
 
     while(this_met < best_met or overlap < max_lap):
