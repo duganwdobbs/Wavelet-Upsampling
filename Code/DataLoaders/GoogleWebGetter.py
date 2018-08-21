@@ -115,6 +115,7 @@ class DataGenerator:
     # If batch_zie + num_seen > num_examples, just return
     #   examples to end of list.
 
+    print('Checking... ',end= ' ')
     if batch_size+self.num_seen > self.tot_examples:
       self.epochs  += 1
       self.num_seen = 0
@@ -129,14 +130,25 @@ class DataGenerator:
     imgs = []
     files= []
     x = 0
+    print('Pulling Batch... ',end= ' ')
     while len(imgs) < batch_size:
 
       # Pull all items out out of the queue until there are enough for a batch.
-      while self.in_queue.qsize() > 0 or batch_size + self.num_seen > self.num_examples:
-        self.internal_list.append(self.in_queue.get())
-        self.num_examples = len(self.internal_list)
+      # while self.in_queue.qsize() > 0 or batch_size + self.num_seen > self.num_examples:
+      #   if x > 1e6:
+      #     self.epochs  += 1
+      #     self.num_seen = 0
+      #
+      #   self.internal_list.append(self.in_queue.get())
+      #   self.num_examples = len(self.internal_list)
+      # random.shuffle(self.internal_list)
 
-      file = self.internal_list[self.num_seen+x]
+      try:
+        file = self.internal_list[self.num_seen+x]
+      except:
+        self.epochs  += 1
+        self.num_seen = 0
+        x = 0
       try:
         # Read the images
         img = cv2.imread(self.img_directory+file+'.jpg')

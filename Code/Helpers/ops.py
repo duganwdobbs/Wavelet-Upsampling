@@ -464,6 +464,46 @@ def dense_reduction(net,training, filters = 2, kernel = 3, kmap = 5, stride = 1,
 
   return net
 
+def MSE(labels,logits,name = 'MSE'):
+  with tf.variable_scope(name) as scope:
+    return tf.reduce_mean(tf.pow(labels-logits,2))
+
+def PNSR(labels,logits,max=255,name = 'PNSR'):
+  with tf.variable_scope(name) as scope:
+    val = 10 * tf.log(255**2 / MSE(labels,logits)) / tf.log(10.0)
+  tf.summary.scalar(name,val)
+  return val
+
+def SSIM(labels,logits,max=255,name = 'SSIM'):
+  with tf.variable_scope(name) as scope:
+    x,y = labels,logits
+    l = max
+    k1,k2 = .01,.03
+    c1,c2 = (k1*l)**2,(k2*l)**2
+    tf.summary.scalar("c1",tf.reduce_mean(c1))
+    tf.summary.scalar("c2",tf.reduce_mean(c2))
+    mu_x,sig_x = tf.nn.moments(x,[1,2,3])
+    tf.summary.scalar("Mu_X",tf.reduce_mean(mu_x))
+    tf.summary.scalar("Sig_X",tf.reduce_mean(sig_x))
+    mu_y,sig_y = tf.nn.moments(y,[1,2,3])
+    tf.summary.scalar("Mu_X",tf.reduce_mean(mu_y))
+    tf.summary.scalar("Sig_X",tf.reduce_mean(sig_y))
+    bat,hei,wid,cha = x.get_shape().as_list()
+    sig_xy = [tf.contrib.metrics.streaming_covariance(x[b],y[b])[0] for b in range(bat)]
+    sig_xy = tf.stack(sig_xy)
+    [tf.summary.scalar("Sig_XY",sig_xy[n]) for n in range(FLAGS.batch_size)]
+
+    num = (2*mu_x*mu_y)            * (2*sig_xy + c2)
+    dem = (mu_x**2 + mu_y**2 + c1) * (sig_x**2 + sig_y**2 + c2)
+
+    val = num / dem
+
+    val = tf.reduce_mean(val,-1)
+  tf.summary.scalar(name,val)
+  return val
+
+
+
 
 ''' PROVIDED BY https://github.com/simonmeister/UnFlow/blob/master/src/e2eflow/core/losses.py'''
 def charbonnier_loss(labels, logits, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001, name = "Charbonnier"):

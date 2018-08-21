@@ -13,25 +13,30 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 if   platform.system() == 'Windows':
-  flags.DEFINE_string ('base_dir', 'E:/Wavelet-Upsampling/'      , 'Base os specific DIR')
-  flags.DEFINE_string ('code_dir', 'E:/Wavelet-Upsampling/Code/', 'Location of the code files.')
+  flags.DEFINE_string ('base_dir'   , 'E:/Wavelet-Upsampling/'               , 'Base os specific DIR')
+  flags.DEFINE_string ('code_dir'   , 'E:/Wavelet-Upsampling/Code/'          , 'Location of the code files.')
 elif platform.system() == 'Linux':
-  flags.DEFINE_string ('base_dir', '/data0/ddobbs/Wavelet-Upsampling/'      , 'Base os specific DIR')
-  flags.DEFINE_string ('code_dir', '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
+  flags.DEFINE_string ('base_dir'   , '/data0/ddobbs/Wavelet-Upsampling/'    , 'Base os specific DIR')
+  flags.DEFINE_string ('code_dir'   , '/data0/ddobbs/Wavelet-Upsampling/Code', 'Location of the code files.')
 
-flags.DEFINE_boolean('adv_logging'  ,False,'If we log metadata and histograms')
-flags.DEFINE_boolean('l2_loss'      ,True,'If we use L2 loss')
-flags.DEFINE_boolean('restore'      ,False,'If we use an old network state.')
-flags.DEFINE_boolean('restore_disc' ,True,'If we restore discriminator vars.')
-flags.DEFINE_integer('num_epochs'       , 1                   ,'Number of epochs to run trainer, none for limit by steps.')
-flags.DEFINE_integer('batch_size'       , 4                  ,'Batch size for training.')
-flags.DEFINE_float  ('keep_prob'        , .9                 ,'A variable to use for dropout percentage. (Dont dropout during testing!)')
-flags.DEFINE_float  ('learning_rate'    , .001                ,'A variable to use for initial learning rate.')
-flags.DEFINE_string ('run_dir'    , FLAGS.base_dir  + 'network_log/'  ,'Location to store the Tensorboard Output')
-flags.DEFINE_string ('train_dir'  , FLAGS.base_dir                    ,'Location of the tfrecord files.')
-flags.DEFINE_string ('data_dir'   , FLAGS.base_dir           ,'Location of the training / testing / validation files.')
-flags.DEFINE_string ('ckpt_name'  ,'WaveletUpsample.ckpt'                    ,'Checkpoint name')
-flags.DEFINE_string ('ckpt_i_name','WaveletUpsample-interrupt.ckpt'                  ,'Checkpoint name')
+# Network Variables
+flags.DEFINE_boolean('adv_logging'  , False                                  ,'If we log metadata and histograms.                                       DEFAULT = False'  )
+flags.DEFINE_boolean('l2_loss'      , True                                   ,'If we use L2 loss.                                                       DEFAULT = True'   )
+flags.DEFINE_boolean('restore'      , False                                  ,'If we use an old network state.                                          DEFAULT = False'  )
+flags.DEFINE_boolean('restore_disc' , False                                  ,'If we restore discriminator vars.                                        DEFAULT = False'  )
+flags.DEFINE_integer('num_epochs'   , 1                                      ,'Number of epochs to run per validation.                                  DEFAULT = 1'      )
+flags.DEFINE_integer('num_steps'    , 24000                                  ,'Number of steps to train.                                                DEFAULT = None'   )
+flags.DEFINE_integer('batch_size'   , 4                                      ,'Batch size for training.                                                 DEFAULT = ?'      )
+flags.DEFINE_float  ('keep_prob'    , .9                                     ,'A variable to use for dropout percentage. (Dont dropout during testing!) DEFAULT = .9'     )
+flags.DEFINE_float  ('learning_rate', .001                                   ,'A variable to use for initial learning rate.                             DEFAULT = .001'   )
+flags.DEFINE_string ('wavelet_type' , 'db2'                                  ,'The type of wavelet we use.                                              DEFAULT = \'DB2\'')
+
+# Directory and Checkpoint Information
+flags.DEFINE_string ('run_dir'      , FLAGS.base_dir  + 'network_log/'       ,'Location to store the Tensorboard Output')
+flags.DEFINE_string ('train_dir'    , FLAGS.base_dir                         ,'Location of the tfrecord files. Used if using TFRecord Generator')
+flags.DEFINE_string ('data_dir'     , FLAGS.base_dir                         ,'Location of the training / testing / validation files. Used if using standard file generation.')
+flags.DEFINE_string ('ckpt_name'    ,'WaveletUpsample.ckpt'                  ,'Checkpoint name')
+flags.DEFINE_string ('ckpt_i_name'  ,'WaveletUpsample-interrupt.ckpt'        ,'Interrupt Checkpoint name')
 
 # Helper function to start Tensorboard
 def launchTensorBoard():
@@ -41,7 +46,7 @@ def launchTensorBoard():
 def train(train_run = True, restore = False,epoch = 0):
   if not train_run:
     FLAGS.batch_size = 1
-    FLAGS.num_epochs = 1
+    FLAGS.num_epochs = 4
     FLAGS.keep_prob  = 1
   else:
     FLAGS.batch_size = 3

@@ -51,8 +51,8 @@ class ANN:
         self.inputs()
         print("\rSETTING UP %s INFERENCE                 "%self.net_name,end='')
         self.inference()
-        # self.Image_GAN_builder()
-        self.Wavelet_GAN_Builder()
+        self.Image_GAN_builder()
+        # self.Wavelet_GAN_Builder()
         print("\rSETTING UP %s METRICS                   "%self.net_name,end='')
         self.build_metrics()
 
@@ -162,34 +162,6 @@ class ANN:
 
     return net
 
-  def Dense_Add_Block(self,net,level,features = None, kernel = 3, kmap = 4):
-    with tf.variable_scope("Dense_Block_%d"%level) as scope:
-      # If net is multiple tensors, concat them.
-      net = ops.delist(net)
-      if features is None:
-        b,h,w,c = net.get_shape().as_list()
-        features = c
-      # Setup a list to store map outputs.
-      outs = []
-
-      # Dummy variable for training and trainable atm self.
-      training = True
-      trainable = True
-
-      for n in range(kmap):
-        # BN > RELU > CONV > DROPOUT, as per 100 Layers Tiramisu
-        # out = ops.delist([net,ops.delist(outs)]) if n > 0 else net
-        out  = ops.batch_norm(ops.delist([net,ops.delist(outs)]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
-        out  = ops.relu(out)
-        out  = tf.layers.dropout(out,FLAGS.keep_prob)
-        out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
-        out  = tf.add_n([net,out])
-        for n in outs:
-          out = tf.add_n([out,n])
-        outs.append(out)
-
-      return outs[-1]
-
   def Encoder_Decoder(self,net,out_features,name="Encoder_Decoder"):
     with tf.variable_scope(name) as scope:
       trainable   = True
@@ -220,10 +192,10 @@ class ANN:
 
   def Simple_Wavelet_Generator(self,net,out_features,name = 'Simple_Wavelet_Generator'):
     with tf.variable_scope(name) as scope:
-      net = ops.conv2d(net,16           ,5,stride=1,activation=tf.nn.leaky_relu,name='conv1')
-      net = ops.conv2d(net,32           ,5,stride=1,activation=tf.nn.leaky_relu,name='conv2')
-      # net = ops.conv2d(net,32          ,3,stride=1,activation=tf.nn.leaky_relu,name='conv3')
-      # net = ops.conv2d(net,64          ,3,stride=1,activation=tf.nn.leaky_relu,name='conv4')
+      net = ops.conv2d(   net,              8           ,5,stride=1,activation=tf.nn.crelu,name='conv1')
+      net = ops.bn_conv2d(net,self.training,16          ,5,stride=1,activation=tf.nn.crelu,name='conv2')
+      net = ops.bn_conv2d(net,self.training,24          ,3,stride=1,activation=tf.nn.crelu,name='conv3')
+      net = ops.bn_conv2d(net,self.training,32          ,3,stride=1,activation=tf.nn.crelu,name='conv4')
 
       net = ops.conv2d(net,out_features,3,stride=1,activation=None,name='convEnd')
       return net
@@ -340,12 +312,12 @@ class ANN:
       b,h,w,c   = self.imgs.get_shape().as_list()
       disc_imgs = tf.reshape(disc_imgs,(b*2,h,w,c))
       disc_logs = self.Discriminator(disc_imgs,name=name)
-      b,h,w,c   = disc_logs.get_shape().as_list()
+      b,c   = disc_logs.get_shape().as_list()
       disc_real_logs = disc_logs[0   :b//2]
       disc_fake_logs = disc_logs[b//2:    ]
       disc_logs = tf.stack([disc_real_logs,disc_fake_logs],-1)
       # Shape objects to [B,H,W,C,Real/Fake]
-      disc_logs = tf.transpose(disc_logs,(4,0,1,2,3))
+      disc_logs = tf.transpose(disc_logs,(2,0,1))
       # Shape objects to [Real/Fake,B,H,W,C]
       return self.Discriminator_Loss(disc_logs,name)
 
@@ -384,19 +356,28 @@ class ANN:
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def inference(self):
+    # This is our wavelet.
     pywt_wavelet = "db2"
     wavelet = eval("wavelets." + pywt_wavelet)
 
-    # Resize images
-    self.re_img = self.imgs[:,::2,::2,:]
+    # Resize images and pad to deal with convolutional issues with wavelet
+    #  transforms on borders.
+    pad_pixels  = 3
+    pad_size    = (2 * 2 * 3) * pad_pixels
+    paddings    = [[pad_size,pad_size],[pad_size,pad_size]]
+    pad_imgs    = tf.pad(self.imgs,paddings)
+    self.re_img = pad_imgs[:,::2,::2,:]
 
+    # Create Ground Truth wavelet features to compare against. Note: LOSS IS NOT
+    #   CALCULATED WITH THESE
     with tf.variable_scope("DWT") as scope:
-      self.gt_dwt = wavelets.dwt(self.imgs, wavelet)
+      self.gt_dwt = wavelets.dwt(pad_imgs, wavelet)
       self.gt_avg    = self.gt_dwt[0,0]
       self.gt_low_w  = self.gt_dwt[0,1]
       self.gt_low_h  = self.gt_dwt[1,0]
       self.gt_detail = self.gt_dwt[1,1]
 
+    # Create Generators for wavelet features
     # Average Decomposition, what we're given
     self.pred_avg    = self.Simple_Wavelet_Generator(self.re_img,3,"Avg_Generator")
     # Low pass Width
@@ -406,6 +387,7 @@ class ANN:
     # High Pass
     self.pred_detail = self.Encoder_Decoder(self.re_img,3,"Detail_Generator")
 
+    # Format our wavelet features for IDWT
     with tf.variable_scope('Wavelet_Formatting') as scope:
       pred_dwt = tf.stack(
       [ tf.stack([self.pred_avg   , self.pred_low_w ],-1),
@@ -413,26 +395,41 @@ class ANN:
               ,-1)
       self.pred_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
 
+    # Preform our inverse discrete wavelet transform
     with tf.variable_scope("IDWT") as scope:
       self.w_x, self.wav_logs = wavelets.idwt(self.pred_dwt, wavelet)
-    self.wav_logs = ops.relu(self.wav_logs)
+
+    # Clip the values below zero
+    self.wav_logs = tf.maximum(self.wav_logs,0)
+    # Clip the values above max
+    self.wav_logs = tf.minimum(self.wav_logs,255)
+    # Undo our paddings
+    self.wav_logs = self.wav_logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
+    # Wavelet decom / recomp yields [?,?,?,?] shapes, we just need to reinforce
+    #  static shapes in the code using this.
     self.wav_logs = tf.reshape(self.wav_logs,self.imgs.get_shape().as_list())
 
-
+    # Log the goal image
     self.summary_image("1_Origional"  ,self.imgs  )
+    # Log the predicted image
     self.summary_image("1_WavResult"  ,self.wav_logs  )
+    # Log our resized image, this will have padding
     self.summary_image("2_Resized"    ,self.re_img)
+    # Log our full sized image error as a viewable image.
     self.summary_image("2_Full_Error" ,self.gen_aerr(self.wav_logs,self.imgs))
 
+    # Log our Pred wavelet features
     self.summary_wavelet("3_Pred_Wav",self.pred_dwt)
+    # Log our GT wavelet features
     self.summary_wavelet("3_GT_Wav",self.gt_dwt)
 
+    # For logging sake, generate error in wavelet features.
     with tf.variable_scope("Wav_Err_Gen") as scope:
       wav_err = self.gen_aerr(self.gt_dwt,self.pred_dwt)
-      wav_avg_err = tf.reduce_sum(wav_err[0,0])
-      wav_wid_err = tf.reduce_sum(wav_err[0,1])
-      wav_hei_err = tf.reduce_sum(wav_err[1,0])
-      wav_det_err = tf.reduce_sum(wav_err[1,1])
+      wav_avg_err = tf.reduce_mean(wav_err[0,0])
+      wav_wid_err = tf.reduce_mean(wav_err[0,1])
+      wav_hei_err = tf.reduce_mean(wav_err[1,0])
+      wav_det_err = tf.reduce_mean(wav_err[1,1])
       tf.summary.scalar("wav_avg_err",wav_avg_err)
       tf.summary.scalar("wav_wid_err",wav_wid_err)
       tf.summary.scalar("wav_hei_err",wav_hei_err)
@@ -443,8 +440,9 @@ class ANN:
 
   def build_metrics(self):
     labels = self.imgs
-    wav_rmse      = ops.count_rmse(labels,self.wav_logs,name = "Wav_RMSE")
-    wav_char      = ops.charbonnier_loss(labels,self.wav_logs,name = "Wav_Char")
+    logits = self.wav_logs
+    wav_rmse      = ops.count_rmse(labels,logits,name = "Wav_RMSE")
+    wav_char      = ops.charbonnier_loss(labels,logits,name = "Wav_Char")
 
     # Not enabling L2 loss, as counting networks might not work well with it.
     # total_loss = l2loss(huber,l2 = True)
@@ -458,10 +456,30 @@ class ANN:
     gen_l2  = ops.l2loss(loss_vars = gen_vars , l2=True)
 
     total_disc_loss = self.disc_loss + disc_l2
-    total_gen_loss  = wav_char + self.gen_loss * .85 + gen_l2
+    total_gen_loss  = self.gen_loss  + wav_char
 
+    PSNR = tf.image.psnr(labels, logits,255)
+    tf.summary.scalar("PSNR",tf.reduce_mean(PSNR))
+    SSIM = tf.image.ssim(labels, logits,255)
+    tf.summary.scalar("SSIM",tf.reduce_mean(SSIM))
+    SSIMM= tf.image.ssim_multiscale(labels, logits,255)
+    tf.summary.scalar("SSIMM",tf.reduce_mean(SSIMM))
 
-    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step),self.optomize(total_disc_loss,disc_vars,learning_rate = .0007))
+    with tf.variable_scope("PerImageStats") as scope:
+      [tf.summary.scalar("PSNR_%d"%x,PSNR[x]) for x in range(FLAGS.batch_size)]
+      [tf.summary.scalar("SSIM_%d"%x,SSIM[x]) for x in range(FLAGS.batch_size)]
+      [tf.summary.scalar("SSIMM_%d"%x,SSIMM[x]) for x in range(FLAGS.batch_size)]
+
+    gen_lr = tf.train.exponential_decay(
+                                        learning_rate = FLAGS.learning_rate,
+                                        global_step   = self.global_step,
+                                        decay_steps   = 1500,
+                                        decay_rate    = .9,
+                                        staircase     = False,
+                                        name          = None
+                                       )
+
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars))
   # END BUILD_METRICS
 
   def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):
@@ -502,8 +520,12 @@ class ANN:
     op        = [self.train,self.summaries]
     test_op   = [self.metrics,self.summaries]
     self.step+= 1
+    if FLAGS.num_steps is not None and self.step > FLAGS.num_steps:
+      raise KeyError
 
+    print('\rGetting next batch...',end='')
     _imgs,_ids = self.generator.get_next_batch(FLAGS.batch_size)
+    print('\rGot next batch...',end='')
 
     fd               = {self.imgs : _imgs}
 
@@ -526,7 +548,7 @@ class ANN:
     # This is a logging step.
     elif self.step % 10 == 0:
       _,summaries = self.sess.run(op,feed_dict = fd)
-      print('\rSTEP %d'%self.step,end='')
+      print('\rSTEP %d'%self.step,end=' ')
 
       # If we're using advanced tensorboard logging, this runs.
       if FLAGS.adv_logging:
@@ -536,7 +558,7 @@ class ANN:
       self.writer.add_summary(summaries,tf.train.global_step(self.sess,self.global_step))
 
       # This is a model saving step.
-      if self.step % 100 == 0:
+      if self.step % 1000 == 0:
         self.save(self.global_step)
 
     # If we're not testing or logging, just train.
