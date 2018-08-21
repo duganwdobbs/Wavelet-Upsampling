@@ -30,6 +30,7 @@ flags.DEFINE_integer('batch_size'   , 4                                      ,'B
 flags.DEFINE_float  ('keep_prob'    , .9                                     ,'A variable to use for dropout percentage. (Dont dropout during testing!) DEFAULT = .9'     )
 flags.DEFINE_float  ('learning_rate', .001                                   ,'A variable to use for initial learning rate.                             DEFAULT = .001'   )
 flags.DEFINE_string ('wavelet_type' , 'db2'                                  ,'The type of wavelet we use.                                              DEFAULT = \'DB2\'')
+flags.DEFINE_boolean('wavelet_train', False                                  ,'If we are training wavelet vars.                                         DEFAULT = False'  )
 
 # Directory and Checkpoint Information
 flags.DEFINE_string ('run_dir'      , FLAGS.base_dir  + 'network_log/'       ,'Location to store the Tensorboard Output')

@@ -4,7 +4,7 @@ import tensorflow as tf, numpy as np, tensorflow as tf, shutil, wget, tarfile, o
 from Helpers     import ops, util
 from DataLoaders import GoogleWebGetter as Generator
 
-from Helpers.UTIL_wavelets import wavelets
+from Helpers.UTIL_wavelets.tfwt import TFWAV
 
 # Import Flag globals
 flags = tf.app.flags
@@ -357,21 +357,20 @@ class ANN:
 
   def inference(self):
     # This is our wavelet.
-    pywt_wavelet = "db2"
-    wavelet = eval("wavelets." + pywt_wavelet)
+    wavelet = TFWAV(FLAGS.wavelet_train,FLAGS.wavelet_type)
 
     # Resize images and pad to deal with convolutional issues with wavelet
     #  transforms on borders.
     pad_pixels  = 3
     pad_size    = (2 * 2 * 3) * pad_pixels
-    paddings    = [[pad_size,pad_size],[pad_size,pad_size]]
+    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
     pad_imgs    = tf.pad(self.imgs,paddings)
     self.re_img = pad_imgs[:,::2,::2,:]
 
     # Create Ground Truth wavelet features to compare against. Note: LOSS IS NOT
     #   CALCULATED WITH THESE
     with tf.variable_scope("DWT") as scope:
-      self.gt_dwt = wavelets.dwt(pad_imgs, wavelet)
+      self.gt_dwt = wavelet.dwt(pad_imgs)
       self.gt_avg    = self.gt_dwt[0,0]
       self.gt_low_w  = self.gt_dwt[0,1]
       self.gt_low_h  = self.gt_dwt[1,0]
@@ -397,7 +396,7 @@ class ANN:
 
     # Preform our inverse discrete wavelet transform
     with tf.variable_scope("IDWT") as scope:
-      self.w_x, self.wav_logs = wavelets.idwt(self.pred_dwt, wavelet)
+      self.w_x, self.wav_logs = wavelet.idwt(self.pred_dwt)
 
     # Clip the values below zero
     self.wav_logs = tf.maximum(self.wav_logs,0)
