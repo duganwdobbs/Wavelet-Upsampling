@@ -29,8 +29,19 @@ flags.DEFINE_integer('num_steps'    , 24000                                  ,'N
 flags.DEFINE_integer('batch_size'   , 4                                      ,'Batch size for training.                                                 DEFAULT = ?'      )
 flags.DEFINE_float  ('keep_prob'    , .9                                     ,'A variable to use for dropout percentage. (Dont dropout during testing!) DEFAULT = .9'     )
 flags.DEFINE_float  ('learning_rate', .001                                   ,'A variable to use for initial learning rate.                             DEFAULT = .001'   )
+
+
+# Wavelet related variables
 flags.DEFINE_string ('wavelet_type' , 'db2'                                  ,'The type of wavelet we use.                                              DEFAULT = \'DB2\'')
 flags.DEFINE_boolean('wavelet_train', False                                  ,'If we are training wavelet vars.                                         DEFAULT = False'  )
+# NOTE: If wavelet_train is true, USE IMAGE DISCRIMINATOR. Wavelet Discriminators will enforce features for whichever wavelet you use.
+
+
+# GAN related variables
+flags.DEFINE_string ('disc_type'    , 'wavelet'                              ,'The type of wavelet we use.                                              DEFAULT = \'DB2\'')
+flags.DEFINE_integer('pad_pixels'   , 2 * 2 * 3                              ,'Amount to pad the image for wavelet issues after striding.               DEFAULT = ?'      )
+flags.DEFINE_integer('pad_amount'   , 2 * 2 * 3 * FLAGS.pad_pixels           ,'Amount to pad the image for wavelet issues before striding.              DEFAULT = ?'      )
+
 
 # Directory and Checkpoint Information
 flags.DEFINE_string ('run_dir'      , FLAGS.base_dir  + 'network_log/'       ,'Location to store the Tensorboard Output')

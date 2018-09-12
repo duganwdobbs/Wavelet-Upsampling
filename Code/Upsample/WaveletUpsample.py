@@ -51,8 +51,10 @@ class ANN:
         self.inputs()
         print("\rSETTING UP %s INFERENCE                 "%self.net_name,end='')
         self.inference()
-        self.Image_GAN_builder()
-        # self.Wavelet_GAN_Builder()
+        if FLAGS.disc_type == 'image':
+          self.Image_GAN_builder()
+        if FLAGS.disc_type == 'wavelet':
+          self.Wavelet_GAN_Builder()
         print("\rSETTING UP %s METRICS                   "%self.net_name,end='')
         self.build_metrics()
 
@@ -82,7 +84,7 @@ class ANN:
 
   '''-----------------------------HELPER FUNCTIONS----------------------------'''
 
-  def Dense_Block(self,net,level,features = 12, kernel = 3, kmap = 5):
+  def Dense_Block(self,net,level,features = 12, kernel = 3, kmap = 5, bn = True):
     with tf.variable_scope("Dense_Block_%d"%level) as scope:
       # If net is multiple tensors, concat them.
       net = ops.delist(net)
@@ -95,7 +97,12 @@ class ANN:
 
       for n in range(kmap):
         # BN > RELU > CONV > DROPOUT, as per 100 Layers Tiramisu
-        out  = ops.batch_norm(ops.delist([net,outs]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
+
+        if bn:
+          out  = ops.batch_norm(ops.delist([net,outs]),training,trainable) if n > 0 else ops.batch_norm(net,training,trainable)
+        else:
+          out  = ops.delist([net,outs]) if n > 0 else net
+
         out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
         out  = tf.nn.leaky_relu(out)
         out  = tf.layers.dropout(out,FLAGS.keep_prob)
@@ -116,7 +123,7 @@ class ANN:
       net = ops.deconvxy(net,stride)
       return net
 
-  def Encoder(self,net,kmap,feature,stride,level):
+  def Encoder(self,net,kmap,feature,stride,level,bn = True):
     '''
     This is our encoder function helper. It receives a good number of variables,
     then constructs one level of our encoding pathway. This involves a dense
@@ -133,12 +140,12 @@ class ANN:
       skip          : The skip connection output from pre-pooling
     '''
     with tf.variable_scope("Encoder_%d"%level) as scope:
-      skip  = self.Dense_Block(net,level,features = feature,kmap = kmap)
+      skip  = self.Dense_Block(net,level,features = feature,kmap = kmap,bn = bn)
       down  = self.Transition_Down([net,skip],stride,level)
 
     return skip,down
 
-  def Decoder(self,net,skip,kmap,feature,stride,level,residual_conn = True):
+  def Decoder(self,net,skip,kmap,feature,stride,level,bn = True):
     '''
     This is our decoder function helper. It receives a good number of variables,
     then constructs one level of our decoding pathway. This involves a upsample,
@@ -150,19 +157,18 @@ class ANN:
       feature       : This is the feature growth for the dense block
       stride        : This is the striding amount to upsample
       level         : This is an int referring to the level number
-      residual_conn : This is if we use a residual connection
 
     Returns:
       net           : The output hidden network state
     '''
     with tf.variable_scope("Decoder_%d"%level) as scope:
       net   = self.Transition_Up(net,stride,level)
-      resid = self.Dense_Block([net,skip],level,features = feature,kmap = kmap)
+      resid = self.Dense_Block([net,skip],level,features = feature,kmap = kmap,bn = bn)
       net   = ops.delist([net,resid])
 
     return net
 
-  def Encoder_Decoder(self,net,out_features,name="Encoder_Decoder"):
+  def Encoder_Decoder(self,net,out_features,name="Encoder_Decoder",bn = True):
     with tf.variable_scope(name) as scope:
       trainable   = True
       kmaps       = [ 2, 3]
@@ -176,7 +182,7 @@ class ANN:
         kmap   = kmaps[x]
         feature= features[x]
 
-        skip,net = self.Encoder(net,kmap,feature,stride,x+1)
+        skip,net = self.Encoder(net,kmap,feature,stride,x+1,bn)
 
         skips.append(skip)
 
@@ -186,16 +192,16 @@ class ANN:
         kmap   = kmaps[-x]
         feature= features[-x]
 
-        net = self.Decoder(net,skip,kmap,feature,stride,len(strides)+1-x)
+        net = self.Decoder(net,skip,kmap,feature,stride,len(strides)+1-x,bn)
       net = ops.conv2d(net,out_features,3,name='Decomp_Formatter',activation = None)
       return net
 
   def Simple_Wavelet_Generator(self,net,out_features,name = 'Simple_Wavelet_Generator'):
     with tf.variable_scope(name) as scope:
-      net = ops.conv2d(   net,              8           ,5,stride=1,activation=tf.nn.crelu,name='conv1')
-      net = ops.bn_conv2d(net,self.training,16          ,5,stride=1,activation=tf.nn.crelu,name='conv2')
-      net = ops.bn_conv2d(net,self.training,24          ,3,stride=1,activation=tf.nn.crelu,name='conv3')
-      net = ops.bn_conv2d(net,self.training,32          ,3,stride=1,activation=tf.nn.crelu,name='conv4')
+      net = ops.conv2d(net, 8,5,stride=1,activation=tf.nn.crelu,name='conv1')
+      net = ops.conv2d(net,16,5,stride=1,activation=tf.nn.crelu,name='conv2')
+      net = ops.conv2d(net,24,3,stride=1,activation=tf.nn.crelu,name='conv3')
+      net = ops.conv2d(net,32,3,stride=1,activation=tf.nn.crelu,name='conv4')
 
       net = ops.conv2d(net,out_features,3,stride=1,activation=None,name='convEnd')
       return net
@@ -262,7 +268,7 @@ class ANN:
     '''
     with tf.variable_scope(name) as scope:
       disc_imgs = tf.concat([real,fake],0)
-      b,h,w,c = self.imgs.get_shape().as_list()
+      b,h,w,c = self.pad_imgs.get_shape().as_list()
       h = h // 2
       w = w // 2
       disc_imgs = tf.reshape(disc_imgs,(b*2,h,w,c))
@@ -361,16 +367,16 @@ class ANN:
 
     # Resize images and pad to deal with convolutional issues with wavelet
     #  transforms on borders.
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    pad_imgs    = tf.pad(self.imgs,paddings)
-    self.re_img = pad_imgs[:,::2,::2,:]
+    pad_pixels   = 3
+    pad_size     = (2 * 2 * 3) * pad_pixels
+    paddings     = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+    self.pad_imgs= tf.pad(self.imgs,paddings,"REFLECT")
+    self.re_img  = self.pad_imgs[:,::2,::2,:]
 
     # Create Ground Truth wavelet features to compare against. Note: LOSS IS NOT
     #   CALCULATED WITH THESE
     with tf.variable_scope("DWT") as scope:
-      self.gt_dwt = wavelet.dwt(pad_imgs)
+      self.gt_dwt = wavelet.dwt(self.pad_imgs)
       self.gt_avg    = self.gt_dwt[0,0]
       self.gt_low_w  = self.gt_dwt[0,1]
       self.gt_low_h  = self.gt_dwt[1,0]
@@ -380,11 +386,11 @@ class ANN:
     # Average Decomposition, what we're given
     self.pred_avg    = self.Simple_Wavelet_Generator(self.re_img,3,"Avg_Generator")
     # Low pass Width
-    self.pred_low_w  = self.Encoder_Decoder(self.re_img,3,"Low_w_Generator")
+    self.pred_low_w  = self.Encoder_Decoder(self.re_img,3,"Low_w_Generator",False)
     # Low pass Height
-    self.pred_low_h  = self.Encoder_Decoder(self.re_img,3,"Low_h_Generator")
+    self.pred_low_h  = self.Encoder_Decoder(self.re_img,3,"Low_h_Generator",False)
     # High Pass
-    self.pred_detail = self.Encoder_Decoder(self.re_img,3,"Detail_Generator")
+    self.pred_detail = self.Encoder_Decoder(self.re_img,3,"Detail_Generator",False)
 
     # Format our wavelet features for IDWT
     with tf.variable_scope('Wavelet_Formatting') as scope:
@@ -472,7 +478,7 @@ class ANN:
     gen_lr = tf.train.exponential_decay(
                                         learning_rate = FLAGS.learning_rate,
                                         global_step   = self.global_step,
-                                        decay_steps   = 1500,
+                                        decay_steps   = 800,
                                         decay_rate    = .9,
                                         staircase     = False,
                                         name          = None
