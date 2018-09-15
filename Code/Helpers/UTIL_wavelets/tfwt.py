@@ -15,7 +15,7 @@ class TFWAV:
         try:
           wavelet = eval("wavelets." + wavelet)
         except:
-          raise KeyError("Icomputable Wavelet type.")
+          raise KeyError("Incomputable Wavelet type.")
       self.filter  = self.make_decomposition_filter(wavelet,trainable)
     if type(wavelet) is float:
       self.filter  = self.make_decomposition_filter(wavelet,trainable)
@@ -49,9 +49,9 @@ class TFWAV:
       wavelet = self.wavelet
       wavelet_length = len(wavelet)
       wavelet_pad = wavelet_length-2
-      channels = tf.shape(inputs)[3]
-      height = tf.shape(inputs)[1]
-      width = tf.shape(inputs)[2]
+
+      examples,height,width,channels = inputs.get_shape().as_list()
+
       filter = self.filter
 
       inputs = tf.transpose(inputs, [0, 3, 1, 2])
@@ -142,18 +142,21 @@ class TFWAV:
       w_x_y = tf.transpose(w_x_y, [3, 5, 0, 4, 2, 1])
       # [w_pass, h_pass, b, height, width, channel]
 
+      w_x_y = tf.reshape(w_x_y,(2,2,examples,height//2, width//2, channels))
+
+
       return w_x_y
   # END dwt
 
   def idwt(self, inputs, padding_mode = "periodization"):
     with tf.variable_scope("IDWT") as scope:
+
       wavelet = self.wavelet
       wavelet_length = len(wavelet)
       wavelet_pad = wavelet_length-2
-      examples = tf.shape(inputs)[2]
-      channels = tf.shape(inputs)[5]
-      width = tf.shape(inputs)[4]
-      height = tf.shape(inputs)[3]
+
+      _,_,examples,height,width,channels = inputs.get_shape().as_list()
+
       dest_width = (tf.shape(inputs)[4] * 2) - wavelet_pad
       dest_height = (tf.shape(inputs)[3] * 2) - wavelet_pad
 
@@ -306,5 +309,25 @@ class TFWAV:
       spatial = tf.transpose(spatial, [0, 2, 3, 1])
       # [b, height, width, channels]
 
+      spatial = tf.reshape(spatial,(examples,height * 2, width * 2, channels))
+
       return w_x, spatial
   # END idwt
+
+  def to_wav_format(self,ll,lh,hl,hh):
+    # Format our wavelet features for IDWT
+    with tf.variable_scope('Wavelet_Formatting') as scope:
+      pred_dwt = tf.stack(
+      [ tf.stack([ll , lh],-1),
+        tf.stack([hl , hh],-1) ]
+              ,-1)
+      form_dwt = tf.transpose(pred_dwt, [4,5,0,1,2,3])
+      return form_dwt
+
+  def from_wav_format(self,wav):
+    with tf.variable_scope("Wavelet_UnFormatting") as scope:
+      ll = wav[0,0]
+      lh = wav[0,1]
+      hl = wav[1,0]
+      hh = wav[1,1]
+      return ll,lh,hl,hh
