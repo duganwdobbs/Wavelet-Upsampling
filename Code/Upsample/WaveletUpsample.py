@@ -126,13 +126,14 @@ class ANN:
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
     gt_dwt = self.wavelet.dwt(gt)
     gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
+    gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
 
     # If we're at the bottom, we need to create our ll approximation
     lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
-    lg_lh = self.lh_GAN(sc_img,gt_lh,not bottom)
-    lg_hl = self.hl_GAN(sc_img,gt_hl,not bottom)
-    lg_hh = self.hh_GAN(sc_img,gt_hh,not bottom)
+    lg_lh = self.lh_GAN(sc_img,gt_lh,True)
+    lg_hl = self.hl_GAN(sc_img,gt_hl,True)
+    lg_hh = self.hh_GAN(sc_img,gt_hh,True)
 
     results = [lg_lh,lg_hl,lg_hh]
     types   = [ 'lh', 'hl', 'hh']
@@ -149,14 +150,15 @@ class ANN:
 
     lg_lh,lg_hl,lg_hh = channel
 
+    lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
+
     pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
+
     self.summary_wavelet("Level_%d_log"%level,pred_dwt)
     self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
     w_x,result = self.wavelet.idwt(pred_dwt)
 
     result = tf.reshape(result,gt.get_shape())
-
-    self.Level_Error_Builder(gt,result)
     return result
 
 
@@ -168,7 +170,7 @@ class ANN:
     pad_pixels  = 3
     pad_size    = (2 * 2 * 3) * pad_pixels
     paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    img_s0      = tf.pad(self.imgs,paddings,"REFLECT")
+    img_s0      = tf.pad(self.imgs,paddings,"REFLECT") / 255.0
 
     b,h,w,c = img_s0.get_shape().as_list()
 
@@ -186,14 +188,18 @@ class ANN:
 
     # This wavelet upsample generates the full sized image using the source
     #   image and the generated ll feature from the previous level.
-    self.logs = self.level_builder( 1 , gt = img_s0 , sc_img = img_s1 , bottom = True )
+    self.logs = self.level_builder( 0 , gt = img_s0 , sc_img = img_s1 , bottom = True )
+
+    self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
     # Clip the values below zero
-    self.logs = tf.maximum( self.logs , 255 )
+    self.logs = tf.maximum( self.logs , 1   )
     # Clip the values above max
     self.logs = tf.minimum( self.logs , 0   )
+    
+    self.Level_Error_Builder(self.imgs,self.logs)
+
     # Undo our paddings
-    self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
     tf.summary.image( "Origional" , tf.cast(self.imgs,tf.uint8) )
     tf.summary.image( "Result"    , self.logs                   )
 
@@ -234,7 +240,6 @@ class ANN:
                                         staircase     = False,
                                         name          = None
                                        )
-
     self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars))
   # END BUILD_METRICS
 

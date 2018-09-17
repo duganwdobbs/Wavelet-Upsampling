@@ -3,7 +3,7 @@
 from DataLoaders.GoogleWebGetter import DataGenerator
 import pywt, numpy as np, cv2
 
-internal_generator = DataGenerator('train','E:/Wavelet-Upsampling/')
+internal_generator = DataGenerator('train','D:/Wavelet-Upsampling/')
 imgs, batch_list = internal_generator.get_next_batch(300)
 img = imgs[0]
 wavelet_types = ['haar','db1','db2','db3','db4','db5','db6','db7','db8','db9','db10','db11','db12','db13','db14','db15','db16','db17','db18','db19','db20']
@@ -29,8 +29,8 @@ for img in imgs:
       _detail.append(detail)
 
 
-    maxval = max(maxval,np.amax(_avg))
-    print("%s: %.7f, from: %d"%(type,maxval,np.amax(img)))
+    maxval = max(maxval,np.amax(_avg) - np.amin(_avg))
+    print("%s: %.2f, this ext: (%.2f/%.2f), from: (%d/%d)"%(type,maxval,np.amax(_avg),np.amin(_avg),np.amax(img),np.amin(img)))
 
     _avg = normalize(np.stack(_avg,-1))
     _low_w = normalize(np.stack(_low_w,-1))
@@ -41,3 +41,9 @@ for img in imgs:
 
     # internal_generator.test(results)
 print(maxval / 255)
+wavelet = pywt.Wavelet('db2')
+# print(wavelet)
+wavelet = wavelet.filter_bank
+print(wavelet[0])
+print(np.sum(wavelet[0]),np.sum(np.abs(wavelet[0])))
+print(np.sum(wavelet[0])**2,np.sum(np.abs(wavelet[0]))**2)
