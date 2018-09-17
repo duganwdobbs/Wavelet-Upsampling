@@ -128,7 +128,7 @@ class ANN:
     gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
 
     # If we're at the bottom, we need to create our ll approximation
-    lg_ll = self.Simple_Wavelet_Generator(sc_img,3)                     if bottom  else ll
+    lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
     lg_lh = self.lh_GAN(sc_img,gt_lh,not bottom)
     lg_hl = self.hl_GAN(sc_img,gt_hl,not bottom)
@@ -183,25 +183,19 @@ class ANN:
 
     gt_ll  = self.wavelet.dwt(wav_s0)[0,0]
 
-    # Scale down the net for our first wavelet upsample
-    net_s2= ops.conv2d(img_s1,12,4,stride=2,activation=tf.nn.crelu,name='down')
-    net_s2= ops.conv2d(net_s2,3,4, stride=1,activation=None       ,name='translate')
 
-    # This wavelet upsample generates the ll feature for the next one using a
-    #   downsampled source image named net_s2, for network state scale 2
-    pred_ll   = self.level_builder(0,gt = wav_s0,sc_img = net_s2, ll = None   ,bottom=True )
     # This wavelet upsample generates the full sized image using the source
     #   image and the generated ll feature from the previous level.
-    self.logs = self.level_builder(1,gt = img_s0,sc_img = img_s1, ll = pred_ll,bottom=False)
+    self.logs = self.level_builder( 1 , gt = img_s0 , sc_img = img_s1 , bottom = True )
 
     # Clip the values below zero
-    # self.logs = tf.maximum(self.logs,.001 * self.logs)
+    self.logs = tf.maximum( self.logs , 255 )
     # Clip the values above max
-    # self.logs = tf.minimum(self.logs,.001 * self.logs)
+    self.logs = tf.minimum( self.logs , 0   )
     # Undo our paddings
     self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
-    tf.summary.image("Origional",tf.cast(self.imgs,tf.uint8))
-    tf.summary.image("Result",self.logs)
+    tf.summary.image( "Origional" , tf.cast(self.imgs,tf.uint8) )
+    tf.summary.image( "Result"    , self.logs                   )
 
   # END INFERENCE
 
