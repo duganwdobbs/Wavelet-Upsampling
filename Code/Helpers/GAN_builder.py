@@ -59,12 +59,7 @@ class GAN:
 
   def Simple_Generator(self,net,name):
     with tf.variable_scope(name) as scope:
-      net = ops.conv2d(net,8                ,5,stride=1,activation=tf.nn.crelu,name='conv1')
-      net = ops.conv2d(net,16               ,5,stride=1,activation=tf.nn.crelu,name='conv2')
-      net = ops.conv2d(net,24               ,3,stride=1,activation=tf.nn.crelu,name='conv3')
-      net = ops.conv2d(net,32               ,3,stride=1,activation=tf.nn.crelu,name='conv4')
-
-      net = ops.conv2d(net,self.out_features,3,stride=1,activation=None,name='convEnd')
+      modules.Encoder_Decoder(net,3)
       return net
 
   def Discriminator_Loss(self,logs,name):

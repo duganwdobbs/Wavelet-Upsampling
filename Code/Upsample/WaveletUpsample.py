@@ -193,11 +193,11 @@ class ANN:
     self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
     # Clip the values below zero
-    self.logs = tf.maximum( self.logs , 1   )
+    self.logs = tf.maximum( self.logs , 0   )
     # Clip the values above max
-    self.logs = tf.minimum( self.logs , 0   )
-    
-    self.Level_Error_Builder(self.imgs,self.logs)
+    self.logs = tf.minimum( self.logs , 1   )
+
+    self.Level_Error_Builder(self.imgs,self.logs * 255)
 
     # Undo our paddings
     tf.summary.image( "Origional" , tf.cast(self.imgs,tf.uint8) )

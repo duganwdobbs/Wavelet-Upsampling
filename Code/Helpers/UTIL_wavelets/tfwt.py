@@ -337,7 +337,7 @@ class TFWAV:
     min_k = tf.reduce_sum(-tf.nn.relu(-kern))
     max_v = maxval * max_k + minval * min_k
     min_v = minval * max_k + maxval * min_k
-    feat  = (feat - min_v) / (max_v + min_v)
+    feat  = (feat - min_v) / (max_v - min_v)
     return feat
 
   def feat_denorm(self,feat,kern,maxval = 1, minval = 0):
@@ -345,7 +345,7 @@ class TFWAV:
     min_k = tf.reduce_sum(-tf.nn.relu(-kern))
     max_v = maxval * max_k + minval * min_k
     min_v = minval * max_k + maxval * min_k
-    feat  = feat * (max_v + min_v) + min_v
+    feat  = feat * (max_v - min_v) + min_v
     return feat
 
   def wav_norm(self,ll,lh,hl,hh):

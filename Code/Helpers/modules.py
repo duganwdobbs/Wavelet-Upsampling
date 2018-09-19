@@ -17,6 +17,7 @@ def Dense_Block(net,level,features = 12, kernel = 3, kmap = 5):
     for n in range(kmap):
       out  = ops.delist([net,outs]) if n > 0 else net
       out  = ops.conv2d(out,filters=features,kernel=kernel,stride=1,activation=None,padding='SAME',name = '_map_%d'%n)
+      out  = ops.batch_norm(out,training,trainable)
       out  = tf.nn.leaky_relu(out)
       outs = tf.concat([outs,out],-1,name='%d_cat'%n) if n > 0 else out
 
@@ -80,10 +81,14 @@ def Decoder(net,skip,kmap,feature,stride,level,residual_conn = True):
 
   return net
 
-def Encoder_Decoder(net,out_features,name="Encoder_Decoder"):
+def Encoder_Decoder(net,out_features = None,name="Encoder_Decoder"):
+  if out_features is None:
+    b,h,w,c = net.get_shape().as_list()
+    out_features = c
+
   with tf.variable_scope(name) as scope:
     trainable   = True
-    kmaps       = [ 2, 3]
+    kmaps       = [ 3, 5]
     features    = [ 4, 6]
     strides     = [ 2, 3]
     skips       = []
@@ -105,5 +110,6 @@ def Encoder_Decoder(net,out_features,name="Encoder_Decoder"):
       feature= features[-x]
 
       net = Decoder(net,skip,kmap,feature,stride,len(strides)+1-x)
+
     net = ops.conv2d(net,out_features,3,name='Decomp_Formatter',activation = None)
     return net
