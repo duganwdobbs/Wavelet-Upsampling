@@ -1,5 +1,3 @@
-#SegmentationNetwork
-
 import tensorflow as tf, numpy as np, shutil, wget, tarfile, os
 from Helpers     import ops, util
 from DataLoaders import GoogleWebGetter as Generator
@@ -91,13 +89,13 @@ class ANN:
   def summary_wavelet(self,name,dwt_output):
     with tf.variable_scope(name) as scope:
       avg    = dwt_output[0,0,:,:,:,:]
-      self.summary_image(name + "_avg",avg)
+      self.summary_image(name + "_ll",avg)
       low_w  = dwt_output[0,1,:,:,:,:]
-      self.summary_image(name + "_low_w",low_w)
+      self.summary_image(name + "_lh",low_w)
       low_h  = dwt_output[1,0,:,:,:,:]
-      self.summary_image(name + "_low_h",low_h)
+      self.summary_image(name + "_hl",low_h)
       detail = dwt_output[1,1,:,:,:,:]
-      self.summary_image(name + "_detail",detail)
+      self.summary_image(name + "_hh",detail)
 
   def gen_aerr(self,labels,logits):
     with tf.variable_scope("AbsErrGen") as scope:
@@ -149,7 +147,6 @@ class ANN:
         channel.append(result['fake'])
 
     lg_lh,lg_hl,lg_hh = channel
-
     lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
     pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
@@ -179,12 +176,8 @@ class ANN:
     self.hl_GAN  = GAN(3,disc_size,"hl")
     self.lh_GAN  = GAN(3,disc_size,"lh")
 
-    wav_s0 = self.wavelet.dwt(img_s0)[0,0]
     img_s1 = img_s0[:,::2,::2,:]
     tf.summary.image("Downsamp",img_s1)
-
-    gt_ll  = self.wavelet.dwt(wav_s0)[0,0]
-
 
     # This wavelet upsample generates the full sized image using the source
     #   image and the generated ll feature from the previous level.
@@ -193,15 +186,15 @@ class ANN:
     self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
     # Clip the values below zero
-    self.logs = tf.maximum( self.logs , 1   )
+    self.logs = tf.maximum( self.logs , 0.0   )
     # Clip the values above max
-    self.logs = tf.minimum( self.logs , 0   )
-    
-    self.Level_Error_Builder(self.imgs,self.logs)
+    self.logs = tf.minimum( self.logs , 1.0   )
+
+    self.Level_Error_Builder(self.imgs,self.logs * 255)
 
     # Undo our paddings
-    tf.summary.image( "Origional" , tf.cast(self.imgs,tf.uint8) )
-    tf.summary.image( "Result"    , self.logs                   )
+    tf.summary.image( "Origional" , self.imgs )
+    tf.summary.image( "Result"    , self.logs )
 
   # END INFERENCE
 

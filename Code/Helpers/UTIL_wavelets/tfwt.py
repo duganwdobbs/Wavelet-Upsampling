@@ -333,35 +333,65 @@ class TFWAV:
       return ll,lh,hl,hh
 
   def feat_norm(self,feat,kern,maxval = 1, minval = 0):
-    max_k = tf.reduce_sum( tf.nn.relu( kern))
-    min_k = tf.reduce_sum(-tf.nn.relu(-kern))
-    max_v = maxval * max_k + minval * min_k
-    min_v = minval * max_k + maxval * min_k
-    feat  = (feat - min_v) / (max_v + min_v)
-    return feat
+    with tf.variable_scope("Wav_Norming") as scope:
+      max_k = tf.reduce_sum( tf.nn.relu( kern))
+      min_k = tf.reduce_sum(-tf.nn.relu(-kern))
+      max_v = maxval * max_k + minval * min_k
+      min_v = minval * max_k + maxval * min_k
+      feat  = (feat - min_v) / (max_v - min_v)
+      return feat
 
   def feat_denorm(self,feat,kern,maxval = 1, minval = 0):
-    max_k = tf.reduce_sum( tf.nn.relu( kern))
-    min_k = tf.reduce_sum(-tf.nn.relu(-kern))
-    max_v = maxval * max_k + minval * min_k
-    min_v = minval * max_k + maxval * min_k
-    feat  = feat * (max_v + min_v) + min_v
-    return feat
+    with tf.variable_scope("Wav_Denorming") as scope:
+      max_k = tf.reduce_sum( tf.nn.relu( kern))
+      min_k = tf.reduce_sum(-tf.nn.relu(-kern))
+      max_v = maxval * max_k + minval * min_k
+      min_v = minval * max_k + maxval * min_k
+      feat  = feat * (max_v - min_v) + min_v
+      return feat
 
   def wav_norm(self,ll,lh,hl,hh):
-    filt_low    = self.filter[:,:,0]
-    filt_high   = self.filter[:,:,1]
-    ll = self.feat_norm(self.feat_norm(ll,filt_low),filt_low)
-    lh = self.feat_norm(self.feat_norm(lh,filt_low),filt_high)
-    hl = self.feat_norm(self.feat_norm(hl,filt_high),filt_low)
-    hh = self.feat_norm(self.feat_norm(hh,filt_high),filt_high)
-    return ll,lh,hl,hh
+    with tf.variable_scope("Wav_Norm") as scope:
+      filt_low    = self.filter[:,:,0]
+      filt_high   = self.filter[:,:,1]
+      ll = self.feat_norm(ll,filt_low)
+      ll = self.feat_norm(ll,filt_low)
+
+      lh = self.feat_norm(lh,filt_low)
+      lh = self.feat_norm(lh,filt_high)
+
+      hl = self.feat_norm(hl,filt_high)
+      hl = self.feat_norm(hl,filt_low)
+
+      hl = self.feat_norm(hh,filt_high)
+      hh = self.feat_norm(hh,filt_high)
+      return ll,lh,hl,hh
 
   def wav_denorm(self,ll,lh,hl,hh):
-    filt_low    = self.filter[:,:,0]
-    filt_high   = self.filter[:,:,1]
-    ll = self.feat_denorm(self.feat_denorm(ll,filt_low) ,filt_low)
-    lh = self.feat_denorm(self.feat_denorm(lh,filt_low) ,filt_high)
-    hl = self.feat_denorm(self.feat_denorm(hl,filt_high),filt_low)
-    hh = self.feat_denorm(self.feat_denorm(hh,filt_high),filt_high)
-    return ll,lh,hl,hh
+    with tf.variable_scope("Wav_Denorm") as scope:
+      filt_low    = self.filter[:,:,0]
+      filt_high   = self.filter[:,:,1]
+      # tf.summary.image("1pre_ll",ll)
+      ll = self.feat_denorm(ll,filt_low)
+      # tf.summary.image("2mid_ll",ll)
+      ll = self.feat_denorm(ll,filt_low)
+      # tf.summary.image("3post_ll",ll)
+
+      # tf.summary.image("1pre_lh",lh)
+      lh = self.feat_denorm(lh,filt_low)
+      # tf.summary.image("2mid_lh",lh)
+      lh = self.feat_denorm(lh,filt_high)
+      # tf.summary.image("3post_lh",lh)
+
+      # tf.summary.image("1pre_hl",hl)
+      hl = self.feat_denorm(hl,filt_high)
+      # tf.summary.image("2mid_hl",hl)
+      hl = self.feat_denorm(hl,filt_low)
+      # tf.summary.image("3post_hl",hl)
+
+      # tf.summary.image("1pre_hh",hh)
+      hh = self.feat_denorm(hh,filt_high)
+      # tf.summary.image("2mid_hh",hh)
+      hh = self.feat_denorm(hh,filt_high)
+      # tf.summary.image("3post_hh",hh)
+      return ll,lh,hl,hh
