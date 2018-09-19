@@ -368,7 +368,8 @@ class TFWAV:
       return ll,lh,hl,hh
 
   def wav_denorm(self,ll,lh,hl,hh):
-    with tf.variable_scope("Wav_Denorm") as scope:
+    with tf.variable_scope("Wav_Denorm
+    +") as scope:
       filt_low    = self.filter[:,:,0]
       filt_high   = self.filter[:,:,1]
       # tf.summary.image("1pre_ll",ll)

@@ -55,9 +55,9 @@ class DataGenerator:
       file_list = [f.replace('.jpg' ,'') for f in os.listdir(self.img_directory ) if f.endswith('.jpg' )]
     # If split lists don't exist as files, create them. Shuffle values, then
     # write to test,train,val.lst
-    if (not os.path.isfile(base_directory + 'test.lst' ) or
-        not os.path.isfile(base_directory + 'train.lst') or
-        not os.path.isfile(base_directory + 'val.lst'  )   ):
+    if (not os.path.isfile(base_directory + 'TEST.lst' ) or
+        not os.path.isfile(base_directory + 'TRAIN.lst') or
+        not os.path.isfile(base_directory + 'VAL.lst'  )   ):
       print("\rFILE SPLITS NOT FOUND... REBUILDING.",end='')
       self.write_lists(file_list)
 
