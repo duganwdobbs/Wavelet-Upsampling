@@ -86,9 +86,9 @@ class DataGenerator:
   def write_lists(self,file_list):
     data_len = len(file_list)
     random.shuffle(file_list)
-    self.file_writer('test' ,file_list[0                  :data_len * 3  // 10])
-    self.file_writer('train',file_list[data_len * 3 // 10 :data_len * 9  // 10])
-    self.file_writer('val'  ,file_list[data_len * 9 // 10 :data_len * 10 // 10])
+    self.file_writer('TEST' ,file_list[0                  :data_len * 3  // 10])
+    self.file_writer('TRAIN',file_list[data_len * 3 // 10 :data_len * 9  // 10])
+    self.file_writer('VAL'  ,file_list[data_len * 9 // 10 :data_len * 10 // 10])
 
   def start(self,num_threads = 5):
     # Start the downloader. It'll self-terminate when it doesn't need to download any more.
