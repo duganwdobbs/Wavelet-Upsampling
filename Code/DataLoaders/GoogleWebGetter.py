@@ -61,9 +61,9 @@ class DataGenerator:
       print("\rFILE SPLITS NOT FOUND... REBUILDING.",end='')
       self.write_lists(file_list)
 
-    test_list  = self.file_reader(base_directory, 'test')
-    train_list = self.file_reader(base_directory, 'train')
-    val_list   = self.file_reader(base_directory, 'val')
+    test_list  = self.file_reader(base_directory, 'TEST')
+    train_list = self.file_reader(base_directory, 'TRAIN')
+    val_list   = self.file_reader(base_directory, 'VAL')
     if len(file_list) != len(test_list) + len(train_list) + len(val_list):
       print("\rFILE SPLITS NOT ACCURATE... REBUILDING.",end='')
       self.write_lists(file_list)
