@@ -131,30 +131,25 @@ class ANN:
       # If we're at the bottom, we need to create our ll approximation
       lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
-      lg_lh = self.lh_GAN(sc_img,gt_lh,True)
-      lg_hl = self.hl_GAN(sc_img,gt_hl,True)
-      lg_hh = self.hh_GAN(sc_img,gt_hh,True)
+      lg_lh,g_loss,d_loss = self.lh_GAN(sc_img,gt_lh,True)
+      self.sum_g_loss += g_loss
+      self.sum_d_loss += d_loss
 
-      results = [lg_lh,lg_hl,lg_hh]
-      types   = [ 'lh', 'hl', 'hh']
-      channel = []
+      lg_hl,g_loss,d_loss = self.hl_GAN(sc_img,gt_hl,True)
+      self.sum_g_loss += g_loss
+      self.sum_d_loss += d_loss
 
-      for result,type in zip(results,types):
-        with tf.variable_scope(type + '_%d_Logs'%level) as scope:
-          g_loss = result['g_loss']
-          self.sum_g_loss += g_loss
-          d_loss = result['d_loss']
-          self.sum_d_loss += d_loss
+      lg_hh,g_loss,d_loss = self.hh_GAN(sc_img,gt_hh,True)
+      self.sum_g_loss += g_loss
+      self.sum_d_loss += d_loss
 
-          channel.append(result['fake'])
-
-      lg_lh,lg_hl,lg_hh = channel
       lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
       pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
 
       self.summary_wavelet("Level_%d_log"%level,pred_dwt)
       self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
+      
       w_x,result = self.wavelet.idwt(pred_dwt)
 
       result = tf.reshape(result,gt.get_shape())

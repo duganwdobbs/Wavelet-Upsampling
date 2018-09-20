@@ -45,8 +45,7 @@ class GAN:
       z_input = ops.delist(z_input)
       fake               = self.generator(z_input)
       gen_loss,disc_loss = self.discriminator(self.depad(real),self.depad(fake)) if run_disc else (0,0)
-      returns            = {"fake":fake,"g_loss":gen_loss,"d_loss":disc_loss}
-      return returns
+      return fake,gen_loss,disc_loss
 
   def generator(self,z_input):
     with tf.variable_scope(self.gen_name, reuse = self.g_reuse) as scope:
