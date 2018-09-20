@@ -105,9 +105,10 @@ class ANN:
       return err
 
   def Level_Error_Builder(self,labels,logits):
-    rmse = ops.count_rmse(labels,logits,name = "RMSE")
-    char = ops.charbonnier_loss(labels,logits,name = "CHAR")
-    self.sum_t_loss += char
+    with tf.variable_scope("Error_Gen") as scope:
+      rmse = ops.count_rmse(labels,logits,name = "RMSE")
+      char = ops.charbonnier_loss(labels,logits,name = "CHAR")
+      self.sum_t_loss += char
 
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
@@ -159,17 +160,19 @@ class ANN:
     return result
 
   def pad(self,img):
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    img         = tf.pad(img,paddings,"REFLECT") / 255.0
-    return img
+    with tf.variable_scope("pad") as scope:
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      img         = tf.pad(img,paddings,"REFLECT") / 255.0
+      return img
 
   def depad(self,img,stride = 1):
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels // stride
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
+    with tf.variable_scope("depad") as scope:
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels // stride
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
 
   def inference(self):
@@ -242,7 +245,7 @@ class ANN:
                                         staircase     = False,
                                         name          = None
                                        )
-    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars))
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
   # END BUILD_METRICS
 
   def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):

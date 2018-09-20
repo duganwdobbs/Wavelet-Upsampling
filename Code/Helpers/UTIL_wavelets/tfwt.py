@@ -371,27 +371,15 @@ class TFWAV:
     with tf.variable_scope("Wav_Denorm") as scope:
       filt_low    = self.filter[:,:,0]
       filt_high   = self.filter[:,:,1]
-      # tf.summary.image("1pre_ll",ll)
       ll = self.feat_denorm(ll,filt_low)
-      # tf.summary.image("2mid_ll",ll)
       ll = self.feat_denorm(ll,filt_low)
-      # tf.summary.image("3post_ll",ll)
 
-      # tf.summary.image("1pre_lh",lh)
       lh = self.feat_denorm(lh,filt_low)
-      # tf.summary.image("2mid_lh",lh)
       lh = self.feat_denorm(lh,filt_high)
-      # tf.summary.image("3post_lh",lh)
 
-      # tf.summary.image("1pre_hl",hl)
       hl = self.feat_denorm(hl,filt_high)
-      # tf.summary.image("2mid_hl",hl)
       hl = self.feat_denorm(hl,filt_low)
-      # tf.summary.image("3post_hl",hl)
 
-      # tf.summary.image("1pre_hh",hh)
       hh = self.feat_denorm(hh,filt_high)
-      # tf.summary.image("2mid_hh",hh)
       hh = self.feat_denorm(hh,filt_high)
-      # tf.summary.image("3post_hh",hh)
       return ll,lh,hl,hh

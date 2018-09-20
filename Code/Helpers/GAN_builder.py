@@ -41,24 +41,22 @@ class GAN:
     self.resize_method = resize_method
 
   def __call__(self,z_input,real,run_disc):
-    z_input = ops.delist(z_input)
-    fake               = self.generator(z_input)
-    gen_loss,disc_loss = self.discriminator(self.depad(real),self.depad(fake)) if run_disc else (0,0)
-    with tf.variable_scope(self.name) as scope:
-      tf.summary.image("FAKE",fake)
-      tf.summary.image("REAL",real)
-    returns            = {"fake":fake,"g_loss":gen_loss,"d_loss":disc_loss}
-    return returns
+    with tf.variable_scope(name + '_GAN') as scope:
+      z_input = ops.delist(z_input)
+      fake               = self.generator(z_input)
+      gen_loss,disc_loss = self.discriminator(self.depad(real),self.depad(fake)) if run_disc else (0,0)
+      returns            = {"fake":fake,"g_loss":gen_loss,"d_loss":disc_loss}
+      return returns
 
   def generator(self,z_input):
-    with tf.variable_scope(self.name, reuse = self.g_reuse) as scope:
+    with tf.variable_scope(self.gen_name, reuse = self.g_reuse) as scope:
       self.g_reuse = True
-      return self.Simple_Generator(z_input,self.gen_name)
+      return self.Simple_Generator(z_input)
 
   def discriminator(self,real,fake):
-    with tf.variable_scope(self.name, reuse = self.d_reuse) as scope:
+    with tf.variable_scope(self.disc_name, reuse = self.d_reuse) as scope:
       self.d_reuse = True
-      return self.Simple_Discriminator_Builder(real,fake,self.disc_name)
+      return self.Simple_Discriminator_Builder(real,fake)
 
   def Simple_Generator(self,net,name):
     with tf.variable_scope(name) as scope:
@@ -77,7 +75,7 @@ class GAN:
       gen_loss      : The loss to add to the generator
     '''
     with tf.variable_scope(name) as scope:
-      noise_var = .85
+      noise_var = .95
       eps = 1e-4
       logs = logs * noise_var + tf.random_uniform(shape = logs.get_shape(),minval = eps,maxval = (1-noise_var))
       disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(1 - logs[1]))
@@ -86,7 +84,7 @@ class GAN:
     tf.summary.scalar('gen_loss',gen_loss)
     return disc_loss,gen_loss
 
-  def Simple_Discriminator_Builder(self,real,fake,name):
+  def Simple_Discriminator_Builder(self,real,fake,name = 'Disc'):
     '''
     This method serves to build a Discriminator for real and fake logits
     Parameters:
@@ -99,6 +97,8 @@ class GAN:
       gen_loss      : The loss to add to the generator
     '''
     with tf.variable_scope(name) as scope:
+      tf.summary.image("FAKE",fake)
+      tf.summary.image("REAL",real)
       disc_imgs = tf.concat([real,fake],0)
       b,h,w,c   = real.get_shape().as_list()
       disc_imgs = tf.reshape(disc_imgs,(FLAGS.batch_size*2,h,w,3))
@@ -115,7 +115,7 @@ class GAN:
       # Shape objects to [Real/Fake,B,H,W,C]
       return self.Discriminator_Loss(disc_logs,name)
 
-  def Simple_Discriminator(self,imgs,name = None):
+  def Simple_Discriminator(self,imgs,name = 'Gen'):
     '''
     This is a standard Discriminator network that uses dense blocks followed by
       pooling in order to generate a logit to see if the image is real or fake.
