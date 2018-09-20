@@ -100,7 +100,7 @@ class GAN:
     '''
     with tf.variable_scope(name) as scope:
       disc_imgs = tf.concat([real,fake],0)
-      h,w = self.disc_size
+      b,h,w,c   = real.get_shape().as_list()
       disc_imgs = tf.reshape(disc_imgs,(FLAGS.batch_size*2,h,w,3))
       disc_imgs = disc_imgs / (tf.reduce_max(disc_imgs)/2)-1
       disc_logs = self.Simple_Discriminator(disc_imgs,name=name)
