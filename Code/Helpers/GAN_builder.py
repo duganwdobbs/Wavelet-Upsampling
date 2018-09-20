@@ -127,6 +127,7 @@ class GAN:
     '''
     with tf.variable_scope(name) as scope:
       b,h,w,c = imgs.get_shape().as_list()
+      print(h,w)
       net = imgs
       strides = util.factors(h,w)
       for x in range(len(strides[:-1])):
