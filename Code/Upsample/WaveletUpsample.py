@@ -189,8 +189,9 @@ class ANN:
     self.hl_GAN  = GAN(3,disc_size,"hl")
     self.lh_GAN  = GAN(3,disc_size,"lh")
 
+    with tf.variable_scope("Downsample") as scope:
     img_s1 = img_s0[:,::2,::2,:]
-    tf.summary.image("Downsamp",img_s1)
+      tf.summary.image("Downsamp",img_s1)
 
     # This wavelet upsample generates the full sized image using the source
     #   image and the generated ll feature from the previous level.
@@ -226,12 +227,13 @@ class ANN:
     total_disc_loss = self.sum_d_loss #+ disc_l2
     total_gen_loss  = self.sum_g_loss + self.sum_t_loss
 
-    PSNR = tf.image.psnr(labels, logits,255)
-    tf.summary.scalar("PSNR",tf.reduce_mean(PSNR))
-    SSIM = tf.image.ssim(labels, logits,255)
-    tf.summary.scalar("SSIM",tf.reduce_mean(SSIM))
-    SSIMM= tf.image.ssim_multiscale(labels, logits,255)
-    tf.summary.scalar("SSIMM",tf.reduce_mean(SSIMM))
+    with tf.variable_scope("Metrics") as scope:
+      PSNR = tf.image.psnr(labels, logits,255)
+      tf.summary.scalar("PSNR",tf.reduce_mean(PSNR))
+      SSIM = tf.image.ssim(labels, logits,255)
+      tf.summary.scalar("SSIM",tf.reduce_mean(SSIM))
+      SSIMM= tf.image.ssim_multiscale(labels, logits,255)
+      tf.summary.scalar("SSIMM",tf.reduce_mean(SSIMM))
 
     with tf.variable_scope("PerImageStats") as scope:
       [tf.summary.scalar("PSNR_%d"%x,PSNR[x]) for x in range(FLAGS.batch_size)]
