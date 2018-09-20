@@ -59,7 +59,7 @@ class GAN:
 
   def Simple_Generator(self,net,name = 'Gen'):
     with tf.variable_scope(name) as scope:
-      modules.Encoder_Decoder(net,3)
+      net = modules.Encoder_Decoder(net,3)
       return net
 
   def Discriminator_Loss(self,logs,name):

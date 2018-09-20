@@ -123,7 +123,7 @@ class ANN:
       return net
 
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
-    with tf.variable_scope("Level_%d"%level) as scope:
+    # with tf.variable_scope("Level_%d"%level) as scope:
       gt_dwt = self.wavelet.dwt(gt)
       gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
       gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
@@ -149,7 +149,7 @@ class ANN:
 
       self.summary_wavelet("Level_%d_log"%level,pred_dwt)
       self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
-      
+
       w_x,result = self.wavelet.idwt(pred_dwt)
 
       result = tf.reshape(result,gt.get_shape())
