@@ -127,17 +127,14 @@ class GAN:
     '''
     with tf.variable_scope(name) as scope:
       b,h,w,c = imgs.get_shape().as_list()
-      print(h,w)
       net = imgs
       strides = util.factors(h,w)
-      print(strides)
       for x in range(len(strides[:-1])):
         stride = strides[x]
         # Discard the skip connnection as we are just using the downsampled data
         _,net = modules.Encoder(net,2+x,3,stride,x)
       net = ops.conv2d(net,16,3)
       net = tf.reshape(net,(FLAGS.batch_size*2,-1))
-      input(net)
       # Net will now be a B,#
       net = tf.layers.dense(net,100,activation=ops.relu)
       # Logit will be
