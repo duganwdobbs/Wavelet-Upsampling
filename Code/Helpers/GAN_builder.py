@@ -141,14 +141,16 @@ class GAN:
       return net
 
   def pad(self,img,stride = 1):
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels // stride
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    img         = tf.pad(img,paddings,"REFLECT") / 255.0
-    return img
+    with tf.variable_scope("pad") as scope:
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels // stride
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      img         = tf.pad(img,paddings,"REFLECT") / 255.0
+      return img
 
   def depad(self,img,stride = 1):
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels // stride
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
+    with tf.variable_scope("depad") as scope:
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels // stride
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
