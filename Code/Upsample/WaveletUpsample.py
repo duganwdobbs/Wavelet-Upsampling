@@ -45,7 +45,7 @@ class ANN:
       self.sum_g_loss = 0
       self.sum_t_loss   = 0
 
-      with tf.device('/gpu:0'):
+      with tf.device('/gpu:1'):
         ops.init_scope_vars()
         print("\rSETTING UP %s INPUTS                    "%self.net_name,end='')
         self.generator = Generator.DataGenerator(split,FLAGS.data_dir)

@@ -47,10 +47,10 @@ def launchTensorBoard():
 def train(train_run = True, restore = False,epoch = 0):
   if not train_run:
     FLAGS.batch_size = 1
-    FLAGS.num_epochs = 4
+    FLAGS.num_epochs = 1
     FLAGS.keep_prob  = 1
   else:
-    FLAGS.batch_size = 3
+    FLAGS.batch_size = 4
     FLAGS.num_epochs = 1
     FLAGS.keep_prob  = .8
 
