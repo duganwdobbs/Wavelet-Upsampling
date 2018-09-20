@@ -190,7 +190,7 @@ class ANN:
     self.lh_GAN  = GAN(3,disc_size,"lh")
 
     with tf.variable_scope("Downsample") as scope:
-    img_s1 = img_s0[:,::2,::2,:]
+      img_s1 = img_s0[:,::2,::2,:]
       tf.summary.image("Downsamp",img_s1)
 
     # This wavelet upsample generates the full sized image using the source
