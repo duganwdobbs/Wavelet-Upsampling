@@ -43,7 +43,7 @@ class GAN:
   def __call__(self,z_input,real,run_disc):
     z_input = ops.delist(z_input)
     fake               = self.generator(z_input)
-    gen_loss,disc_loss = self.discriminator(real,fake) if run_disc else (0,0)
+    gen_loss,disc_loss = self.discriminator(self.depad(real),self.depad(fake)) if run_disc else (0,0)
     with tf.variable_scope(self.name) as scope:
       tf.summary.image("FAKE",fake)
       tf.summary.image("REAL",real)
@@ -142,3 +142,16 @@ class GAN:
       # Logit will be
       net = tf.layers.dense(net,1,activation = tf.nn.sigmoid)
       return net
+
+    def pad(self,img,stride = 1):
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels // stride
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      img         = tf.pad(img,paddings,"REFLECT") / 255.0
+      return img
+
+    def depad(self,img,stride = 1):
+      pad_pixels  = 3
+      pad_size    = (2 * 2 * 3) * pad_pixels // stride
+      paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+      self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]

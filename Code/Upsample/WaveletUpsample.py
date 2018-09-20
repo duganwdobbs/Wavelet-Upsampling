@@ -158,19 +158,29 @@ class ANN:
     result = tf.reshape(result,gt.get_shape())
     return result
 
+  def pad(self,img):
+    pad_pixels  = 3
+    pad_size    = (2 * 2 * 3) * pad_pixels
+    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+    img         = tf.pad(img,paddings,"REFLECT") / 255.0
+    return img
+
+  def depad(self,img,stride = 1):
+    pad_pixels  = 3
+    pad_size    = (2 * 2 * 3) * pad_pixels // stride
+    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
+    self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
+
 
   def inference(self):
     # This is our wavelet.
     self.wavelet = TFWAV(FLAGS.wavelet_train,FLAGS.wavelet_type)
-    # Setting up GANs
-
-    pad_pixels  = 3
-    pad_size    = (2 * 2 * 3) * pad_pixels
-    paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    img_s0      = tf.pad(self.imgs,paddings,"REFLECT") / 255.0
 
     b,h,w,c = img_s0.get_shape().as_list()
 
+    img_s0      = self.pad(self.imgs)
+
+    # Setting up GANs
     disc_size    = (h//2,w//2)
     self.hh_GAN  = GAN(3,disc_size,"hh")
     self.hl_GAN  = GAN(3,disc_size,"hl")
@@ -183,7 +193,7 @@ class ANN:
     #   image and the generated ll feature from the previous level.
     self.logs = self.level_builder( 0 , gt = img_s0 , sc_img = img_s1 , bottom = True )
 
-    self.logs = self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
+    self.logs = self.depad(self.logs)
 
     # Clip the values below zero
     self.logs = tf.maximum( self.logs , 0.0   )
