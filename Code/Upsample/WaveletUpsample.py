@@ -169,7 +169,7 @@ class ANN:
     pad_pixels  = 3
     pad_size    = (2 * 2 * 3) * pad_pixels // stride
     paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
-    self.logs[:,pad_size:-pad_size,pad_size:-pad_size,:]
+    return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
 
   def inference(self):
