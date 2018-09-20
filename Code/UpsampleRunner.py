@@ -85,13 +85,11 @@ def train(train_run = True, restore = False,epoch = 0):
 
   losses = 0
   met    = 0
-  cmat   = 0
   if not train_run:
     losses = np.average(net.losses)
-    cmat   = net.sum_cmat
 
   net.close()
-  return cmat,losses
+  return losses
 
 def main(_):
   run_best = 0
@@ -120,7 +118,7 @@ def main(_):
     while(this_met < best_met or overlap < max_lap):
 
       train(restore = (x != 0),epoch = x)
-      cmat,loss = train(train_run = False, restore = False,epoch = x)
+      loss = train(train_run = False, restore = False,epoch = x)
       this_met = loss
 
       if x == 0:

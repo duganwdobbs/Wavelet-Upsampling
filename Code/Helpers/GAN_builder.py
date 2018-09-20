@@ -44,6 +44,9 @@ class GAN:
     z_input = ops.delist(z_input)
     fake               = self.generator(z_input)
     gen_loss,disc_loss = self.discriminator(real,fake) if run_disc else (0,0)
+    with tf.variable_scope(self.name) as scope:
+      tf.summary.image("FAKE",fake)
+      tf.summary.image("REAL",real)
     returns            = {"fake":fake,"g_loss":gen_loss,"d_loss":disc_loss}
     return returns
 
@@ -74,8 +77,8 @@ class GAN:
       gen_loss      : The loss to add to the generator
     '''
     with tf.variable_scope(name) as scope:
-      noise_var = .8
-      eps = 1e-5
+      noise_var = .85
+      eps = 1e-4
       logs = logs * noise_var + tf.random_uniform(shape = logs.get_shape(),minval = eps,maxval = (1-noise_var))
       disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(1 - logs[1]))
       gen_loss  = -tf.reduce_mean(tf.log(logs[1]))
@@ -128,6 +131,7 @@ class GAN:
       strides = util.factors(h,w)
       for x in range(len(strides[:-1])):
         stride = strides[x]
+        input(stride)
         # Discard the skip connnection as we are just using the downsampled data
         _,net = modules.Encoder(net,2+x,3,stride,x)
       net = ops.conv2d(net,16,3)
