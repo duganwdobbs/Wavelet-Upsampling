@@ -176,9 +176,8 @@ class ANN:
     # This is our wavelet.
     self.wavelet = TFWAV(FLAGS.wavelet_train,FLAGS.wavelet_type)
 
-    b,h,w,c = img_s0.get_shape().as_list()
-
     img_s0      = self.pad(self.imgs)
+    b,h,w,c     = img_s0.get_shape().as_list()
 
     # Setting up GANs
     disc_size    = (h//2,w//2)
