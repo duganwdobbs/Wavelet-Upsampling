@@ -41,7 +41,7 @@ class GAN:
     self.resize_method = resize_method
 
   def __call__(self,z_input,real,run_disc):
-    with tf.variable_scope(name + '_GAN') as scope:
+    with tf.variable_scope(self.name + '_GAN') as scope:
       z_input = ops.delist(z_input)
       fake               = self.generator(z_input)
       gen_loss,disc_loss = self.discriminator(self.depad(real),self.depad(fake)) if run_disc else (0,0)
