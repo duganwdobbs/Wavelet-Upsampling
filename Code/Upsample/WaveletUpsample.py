@@ -105,7 +105,7 @@ class ANN:
       return err
 
   def Level_Error_Builder(self,labels,logits):
-    with tf.variable_scope("Error_Gen") as scope:
+    with tf.variable_scope("Level_Error_Gen") as scope:
       rmse = ops.count_rmse(labels,logits,name = "RMSE")
       char = ops.charbonnier_loss(labels,logits,name = "CHAR")
       self.sum_t_loss += char
@@ -123,41 +123,42 @@ class ANN:
       return net
 
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
-    gt_dwt = self.wavelet.dwt(gt)
-    gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
-    gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
+    with tf.variable_scope("Level_%d"%level) as scope:
+      gt_dwt = self.wavelet.dwt(gt)
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
 
-    # If we're at the bottom, we need to create our ll approximation
-    lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
+      # If we're at the bottom, we need to create our ll approximation
+      lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
-    lg_lh = self.lh_GAN(sc_img,gt_lh,True)
-    lg_hl = self.hl_GAN(sc_img,gt_hl,True)
-    lg_hh = self.hh_GAN(sc_img,gt_hh,True)
+      lg_lh = self.lh_GAN(sc_img,gt_lh,True)
+      lg_hl = self.hl_GAN(sc_img,gt_hl,True)
+      lg_hh = self.hh_GAN(sc_img,gt_hh,True)
 
-    results = [lg_lh,lg_hl,lg_hh]
-    types   = [ 'lh', 'hl', 'hh']
-    channel = []
+      results = [lg_lh,lg_hl,lg_hh]
+      types   = [ 'lh', 'hl', 'hh']
+      channel = []
 
-    for result,type in zip(results,types):
-      with tf.variable_scope(type + '_%d_Logs'%level) as scope:
-        g_loss = result['g_loss']
-        self.sum_g_loss += g_loss
-        d_loss = result['d_loss']
-        self.sum_d_loss += d_loss
+      for result,type in zip(results,types):
+        with tf.variable_scope(type + '_%d_Logs'%level) as scope:
+          g_loss = result['g_loss']
+          self.sum_g_loss += g_loss
+          d_loss = result['d_loss']
+          self.sum_d_loss += d_loss
 
-        channel.append(result['fake'])
+          channel.append(result['fake'])
 
-    lg_lh,lg_hl,lg_hh = channel
-    lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
+      lg_lh,lg_hl,lg_hh = channel
+      lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
-    pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
+      pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
 
-    self.summary_wavelet("Level_%d_log"%level,pred_dwt)
-    self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
-    w_x,result = self.wavelet.idwt(pred_dwt)
+      self.summary_wavelet("Level_%d_log"%level,pred_dwt)
+      self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
+      w_x,result = self.wavelet.idwt(pred_dwt)
 
-    result = tf.reshape(result,gt.get_shape())
-    return result
+      result = tf.reshape(result,gt.get_shape())
+      return result
 
   def pad(self,img):
     with tf.variable_scope("pad") as scope:
@@ -245,7 +246,7 @@ class ANN:
                                         staircase     = False,
                                         name          = None
                                        )
-    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr))#,self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
   # END BUILD_METRICS
 
   def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):
