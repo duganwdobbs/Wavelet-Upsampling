@@ -58,7 +58,7 @@ class GAN:
       self.d_reuse = True
       return self.Simple_Discriminator_Builder(real,fake)
 
-  def Simple_Generator(self,net,name):
+  def Simple_Generator(self,net,name = 'Gen'):
     with tf.variable_scope(name) as scope:
       modules.Encoder_Decoder(net,3)
       return net
