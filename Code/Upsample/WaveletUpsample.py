@@ -129,7 +129,7 @@ class ANN:
       gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
 
       # If we're at the bottom, we need to create our ll approximation
-      lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
+      lg_ll = self.Simple_Wavelet_Generator(sc_img,3,"Gen1") if bottom else ll
 
       # High pass in the height
       lg_lh,g_loss,d_loss = self.lh_GAN([sc_img,lg_ll],gt_lh,True)
@@ -149,7 +149,7 @@ class ANN:
 
       # Apply a residual connection that cleans up the initial guess based on
       #    the outputs of the GANs and initial guess.
-      lg_ll = lg_ll + self.Simple_Wavelet_Generator([lg_ll,lg_lh,lg_hl,lg_hh],3)
+      lg_ll = lg_ll + self.Simple_Wavelet_Generator([lg_ll,lg_lh,lg_hl,lg_hh],3,"Gen2")
 
       lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
