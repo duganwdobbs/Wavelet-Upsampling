@@ -143,7 +143,7 @@ class ANN:
 
       # The HH features can be considered a combination of the other detail
       #   channels, so the generator should be able to see them.
-      lg_hh,g_loss,d_loss = self.hh_GAN([sc_img,lg_ll,lg_hl,lg_hh],gt_hh,True)
+      lg_hh,g_loss,d_loss = self.hh_GAN([sc_img,lg_ll,lg_hl,lg_lh],gt_hh,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
