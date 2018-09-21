@@ -249,7 +249,7 @@ class ANN:
                                         staircase     = False,
                                         name          = None
                                        )
-    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr)),self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr),self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
   # END BUILD_METRICS
 
   def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):
