@@ -131,17 +131,25 @@ class ANN:
       # If we're at the bottom, we need to create our ll approximation
       lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
-      lg_lh,g_loss,d_loss = self.lh_GAN(sc_img,gt_lh,True)
+      # High pass in the height
+      lg_lh,g_loss,d_loss = self.lh_GAN([sc_img,lg_ll],gt_lh,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
-      lg_hl,g_loss,d_loss = self.hl_GAN(sc_img,gt_hl,True)
+      # High pass in the width
+      lg_hl,g_loss,d_loss = self.hl_GAN([sc_img,lg_ll],gt_hl,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
-      lg_hh,g_loss,d_loss = self.hh_GAN(sc_img,gt_hh,True)
+      # The HH features can be considered a combination of the other detail
+      #   channels, so the generator should be able to see them.
+      lg_hh,g_loss,d_loss = self.hh_GAN([sc_img,lg_ll,lg_hl,lg_hh],gt_hh,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
+
+      # Apply a residual connection that cleans up the initial guess based on
+      #    the outputs of the GANs and initial guess.
+      lg_ll = lg_ll + self.Simple_Wavelet_Generator([lg_ll,lg_lh,lg_hl,lg_hh],3)
 
       lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
