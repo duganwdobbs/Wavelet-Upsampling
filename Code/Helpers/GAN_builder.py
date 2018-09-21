@@ -62,7 +62,7 @@ class GAN:
       net = modules.Encoder_Decoder(net,3)
       return net
 
-  def Discriminator_Loss(self,logs,name):
+  def Discriminator_Loss(self,logs,name='Disc_Loss'):
     '''
     This method serves to generate GAN loss.
     Parameters:
@@ -73,12 +73,15 @@ class GAN:
       disc_loss     : The Discriminator loss to minimize
       gen_loss      : The loss to add to the generator
     '''
-    with tf.variable_scope(name) as scope:
+    with tf.variable_scope(name + '_loss') as scope:
       noise_var = .95
       eps = 1e-4
-      logs = logs * noise_var + tf.random_uniform(shape = logs.get_shape(),minval = eps,maxval = (1-noise_var))
-      disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(1 - logs[1]))
-      gen_loss  = -tf.reduce_mean(tf.log(logs[1]))
+      with tf.variable_scope("Noise_Fn") as scope:
+        logs = logs * noise_var + tf.random_uniform(shape = logs.get_shape(),minval = eps,maxval = (1-noise_var))
+      with tf.variable_scope("d_loss") as scope:
+        disc_loss = -tf.reduce_mean(tf.log(logs[0]) + tf.log(1 - logs[1]))
+      with tf.variable_scope("g_loss") as scope:
+        gen_loss  = -tf.reduce_mean(tf.log(logs[1]))
     tf.summary.scalar('disc_loss',disc_loss)
     tf.summary.scalar('gen_loss',gen_loss)
     return disc_loss,gen_loss
@@ -98,21 +101,23 @@ class GAN:
     with tf.variable_scope(name) as scope:
       tf.summary.image("FAKE",fake)
       tf.summary.image("REAL",real)
-      disc_imgs = tf.concat([real,fake],0)
-      b,h,w,c   = real.get_shape().as_list()
-      disc_imgs = tf.reshape(disc_imgs,(FLAGS.batch_size*2,h,w,3))
-      disc_imgs = disc_imgs / (tf.reduce_max(disc_imgs)/2)-1
+      with tf.variable_scope("x_formatter") as scope:
+        disc_imgs = tf.concat([real,fake],0)
+        b,h,w,c   = real.get_shape().as_list()
+        disc_imgs = tf.reshape(disc_imgs,(FLAGS.batch_size*2,h,w,3))
+        disc_imgs = disc_imgs / (tf.reduce_max(disc_imgs)/2)-1
       disc_logs = self.Simple_Discriminator(disc_imgs,name=name)
       b,c       = disc_logs.get_shape().as_list()
 
-      disc_real_logs = disc_logs[0   :b//2]
-      disc_fake_logs = disc_logs[b//2:    ]
+      with tf.variable_scope('y_formatter') as scope:
+        disc_real_logs = disc_logs[0   :b//2]
+        disc_fake_logs = disc_logs[b//2:    ]
 
-      disc_logs = tf.stack([disc_real_logs,disc_fake_logs],-1)
-      # Shape objects to [B,H,W,C,Real/Fake]
-      disc_logs = tf.transpose(disc_logs,(2,0,1))
-      # Shape objects to [Real/Fake,B,H,W,C]
-      return self.Discriminator_Loss(disc_logs,name)
+        disc_logs = tf.stack([disc_real_logs,disc_fake_logs],-1)
+        # Shape objects to [B,H,W,C,Real/Fake]
+        disc_logs = tf.transpose(disc_logs,(2,0,1))
+        # Shape objects to [Real/Fake,B,H,W,C]
+      return self.Discriminator_Loss(disc_logs)
 
   def Simple_Discriminator(self,imgs,name = 'Gen'):
     '''

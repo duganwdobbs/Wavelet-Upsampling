@@ -41,9 +41,9 @@ class ANN:
       self.filestr     = FLAGS.run_dir + 'tensorlogs/' + timestr + '/' + self.net_name + '/'
       self.log_dir     = self.filestr
       # print("LOGGING TO  : %s. "%self.log_dir)
-      self.sum_d_loss = 0
-      self.sum_g_loss = 0
-      self.sum_t_loss   = 0
+      self.sum_d_loss = []
+      self.sum_g_loss = []
+      self.sum_t_loss = []
 
       with tf.device('/gpu:1'):
         ops.init_scope_vars()
@@ -108,7 +108,7 @@ class ANN:
     with tf.variable_scope("Level_Error_Gen") as scope:
       rmse = ops.count_rmse(labels,logits,name = "RMSE")
       char = ops.charbonnier_loss(labels,logits,name = "CHAR")
-      self.sum_t_loss += char
+      self.sum_t_loss.append(char)
 
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
@@ -132,16 +132,16 @@ class ANN:
       lg_ll = self.Simple_Wavelet_Generator(sc_img,3) if bottom else ll
 
       lg_lh,g_loss,d_loss = self.lh_GAN(sc_img,gt_lh,True)
-      self.sum_g_loss += g_loss
-      self.sum_d_loss += d_loss
+      self.sum_g_loss.append(g_loss)
+      self.sum_d_loss.append(d_loss)
 
       lg_hl,g_loss,d_loss = self.hl_GAN(sc_img,gt_hl,True)
-      self.sum_g_loss += g_loss
-      self.sum_d_loss += d_loss
+      self.sum_g_loss.append(g_loss)
+      self.sum_d_loss.append(d_loss)
 
       lg_hh,g_loss,d_loss = self.hh_GAN(sc_img,gt_hh,True)
-      self.sum_g_loss += g_loss
-      self.sum_d_loss += d_loss
+      self.sum_g_loss.append(g_loss)
+      self.sum_d_loss.append(d_loss)
 
       lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
@@ -211,16 +211,22 @@ class ANN:
     labels = self.imgs
     logits = self.logs
 
+    # Sum up the losses
+    with tf.variable_scope("Loss_Summation") as scope:
+      self.sum_d_loss = tf.reduce_sum(self.sum_d_loss)
+      self.sum_g_loss = tf.reduce_sum(self.sum_g_loss)
+      self.sum_t_loss = tf.reduce_sum(self.sum_t_loss)
+
     self.metrics = {"Wav_Char":self.sum_t_loss}
 
     disc_vars = [var for var in tf.trainable_variables() if 'Discriminator' in var.name]
     gen_vars  = [var for var in tf.trainable_variables() if 'Generator'     in var.name]
 
-    # disc_l2 = ops.l2loss(loss_vars = disc_vars, l2=True)
-    # gen_l2  = ops.l2loss(loss_vars = gen_vars , l2=True)
+    disc_l2 = ops.l2loss(loss_vars = disc_vars, l2=True)
+    gen_l2  = ops.l2loss(loss_vars = gen_vars , l2=True)
 
-    total_disc_loss = self.sum_d_loss #+ disc_l2
-    total_gen_loss  = self.sum_g_loss + self.sum_t_loss
+    total_disc_loss = self.sum_d_loss + disc_l2
+    total_gen_loss  = self.sum_g_loss + self.sum_t_loss + gen_l2
 
     with tf.variable_scope("Metrics") as scope:
       PSNR = tf.image.psnr(labels, logits,255)
@@ -243,7 +249,7 @@ class ANN:
                                         staircase     = False,
                                         name          = None
                                        )
-    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr))#,self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
+    self.train = (self.optomize(total_gen_loss,gen_vars,self.global_step,learning_rate = gen_lr)),self.optomize(total_disc_loss,disc_vars,learning_rate = FLAGS.learning_rate / 10))
   # END BUILD_METRICS
 
   def optomize(self,loss,var_list = None,global_step = None,learning_rate = None):
