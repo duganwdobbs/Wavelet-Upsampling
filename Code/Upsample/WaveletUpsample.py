@@ -83,7 +83,8 @@ class ANN:
 
   def summary_image(self,name,img):
     with tf.variable_scope(name) as scope:
-      min = tf.broadcast_to(tf.reduce_min(img,(1,2,3)),img.get_shape())
+      min = tf.reduce_min(img,(1,2,3))
+      min = tf.reshape(img,[FLAGS.batch_size,1,1,1])
       img = img - min
     tf.summary.image(name,img)
 
