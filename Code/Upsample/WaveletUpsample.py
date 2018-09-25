@@ -114,9 +114,9 @@ class ANN:
 
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
     # with tf.variable_scope("Level_%d"%level) as scope:
-      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(
-                                self.wavelet.from_wav_format(
-                                self.wavelet.dwt(gt)         ))
+      gt_dwt = self.wavelet.dwt(gt)
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
 
       # If we're at the bottom, we need to create our ll approximation
       lg_ll = self.Simple_Wavelet_Generator(sc_img,3,"Gen1") if bottom else ll
