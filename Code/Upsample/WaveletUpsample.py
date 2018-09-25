@@ -119,9 +119,6 @@ class ANN:
       gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
 
       # If we're at the bottom, we need to create our ll approximation
-      lg_ll = self.Simple_Wavelet_Generator(sc_img,3,"Gen1") if bottom else ll
-
-      # High pass in the height
       lg_ll,g_loss,d_loss = self.ll_GAN([sc_img],gt_ll,True) if bottom else ll
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
