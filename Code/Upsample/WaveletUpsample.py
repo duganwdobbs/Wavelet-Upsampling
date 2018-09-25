@@ -83,7 +83,7 @@ class ANN:
 
   def summary_image(self,name,img):
     with tf.variable_scope(name) as scope:
-      img = img + tf.minimum(0.0,tf.reduce_min(img))
+      img = img - tf.reduce_min(img,(1,2,3))
     tf.summary.image(name,img)
 
   def summary_wavelet(self,name,dwt_output):
@@ -112,38 +112,33 @@ class ANN:
 
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
-  def Simple_Wavelet_Generator(self,net,out_features,name = 'Simple_Wavelet_Generator'):
-    with tf.variable_scope(name) as scope:
-      net = ops.conv2d(   net,              8           ,5,stride=1,activation=tf.nn.crelu,name='conv1')
-      net = ops.bn_conv2d(net,self.training,16          ,5,stride=1,activation=tf.nn.crelu,name='conv2')
-      net = ops.bn_conv2d(net,self.training,24          ,3,stride=1,activation=tf.nn.crelu,name='conv3')
-      net = ops.bn_conv2d(net,self.training,32          ,3,stride=1,activation=tf.nn.crelu,name='conv4')
-
-      net = ops.conv2d(net,out_features,3,stride=1,activation=None,name='convEnd')
-      return net
-
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
     # with tf.variable_scope("Level_%d"%level) as scope:
-      gt_dwt = self.wavelet.dwt(gt)
-      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
-      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(
+                                self.wavelet.from_wav_format(
+                                self.wavelet.dwt(gt)         ))
 
       # If we're at the bottom, we need to create our ll approximation
       lg_ll = self.Simple_Wavelet_Generator(sc_img,3,"Gen1") if bottom else ll
 
       # High pass in the height
-      lg_lh,g_loss,d_loss = self.lh_GAN([sc_img,lg_ll],gt_lh,True)
+      lg_ll,g_loss,d_loss = self.ll_GAN([sc_img],gt_ll,True) if bottom else ll
+      self.sum_g_loss.append(g_loss)
+      self.sum_d_loss.append(d_loss)
+
+      # High pass in the height
+      lg_lh,g_loss,d_loss = self.lh_GAN([sc_img],gt_lh,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
       # High pass in the width
-      lg_hl,g_loss,d_loss = self.hl_GAN([sc_img,lg_ll],gt_hl,True)
+      lg_hl,g_loss,d_loss = self.hl_GAN([sc_img],gt_hl,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
       # The HH features can be considered a combination of the other detail
       #   channels, so the generator should be able to see them.
-      lg_hh,g_loss,d_loss = self.hh_GAN([sc_img,lg_ll,lg_hl,lg_lh],gt_hh,True)
+      lg_hh,g_loss,d_loss = self.hh_GAN([sc_img],gt_hh,True)
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
@@ -191,6 +186,7 @@ class ANN:
     self.hh_GAN  = GAN(3,disc_size,"hh")
     self.hl_GAN  = GAN(3,disc_size,"hl")
     self.lh_GAN  = GAN(3,disc_size,"lh")
+    self.ll_GAN  = GAN(3,disc_size,"ll")
 
     with tf.variable_scope("Downsample") as scope:
       img_s1 = img_s0[:,::2,::2,:]
