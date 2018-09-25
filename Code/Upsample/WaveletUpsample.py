@@ -83,7 +83,8 @@ class ANN:
 
   def summary_image(self,name,img):
     with tf.variable_scope(name) as scope:
-      img = img - tf.reduce_min(img,(1,2,3))
+      min = tf.broadcast_to(tf.reduce_min(img,(1,2,3)),img.get_shape())
+      img = img - min
     tf.summary.image(name,img)
 
   def summary_wavelet(self,name,dwt_output):
