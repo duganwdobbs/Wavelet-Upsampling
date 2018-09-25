@@ -142,10 +142,6 @@ class ANN:
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
-      # Apply a residual connection that cleans up the initial guess based on
-      #    the outputs of the GANs and initial guess.
-      lg_ll = lg_ll + self.Simple_Wavelet_Generator([lg_ll,lg_lh,lg_hl,lg_hh],3,"Gen2")
-
       lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
 
       pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
