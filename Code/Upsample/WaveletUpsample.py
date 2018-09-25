@@ -194,9 +194,9 @@ class ANN:
     self.logs = self.depad(self.logs)
 
     # Clip the values below zero
-    self.logs = tf.maximum( self.logs , 0.0   )
+    # self.logs = tf.maximum( self.logs , 0.0   )
     # Clip the values above max
-    self.logs = tf.minimum( self.logs , 1.0   )
+    # self.logs = tf.minimum( self.logs , 1.0   )
 
     self.Level_Error_Builder(self.imgs,self.logs * 255)
 
