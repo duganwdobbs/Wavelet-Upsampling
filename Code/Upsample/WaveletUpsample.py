@@ -224,8 +224,8 @@ class ANN:
     disc_l2 = ops.l2loss(loss_vars = disc_vars, l2=True)
     gen_l2  = ops.l2loss(loss_vars = gen_vars , l2=True)
 
-    total_disc_loss = self.sum_d_loss + disc_l2
-    total_gen_loss  = self.sum_g_loss + self.sum_t_loss + gen_l2
+    total_disc_loss = self.sum_d_loss                         + disc_l2
+    total_gen_loss  = self.sum_g_loss / 2.0 + self.sum_t_loss + gen_l2
 
     with tf.variable_scope("Metrics") as scope:
       PSNR = tf.image.psnr(labels, logits,255)
