@@ -88,16 +88,12 @@ class ANN:
       img = img - min
     tf.summary.image(name,img)
 
-  def summary_wavelet(self,name,dwt_output):
+  def summary_wavelet(self,name,ll,lh,hl,hh):
     with tf.variable_scope(name) as scope:
-      avg    = dwt_output[0,0,:,:,:,:]
-      self.summary_image(name + "_ll",avg)
-      low_w  = dwt_output[0,1,:,:,:,:]
-      self.summary_image(name + "_lh",low_w)
-      low_h  = dwt_output[1,0,:,:,:,:]
-      self.summary_image(name + "_hl",low_h)
-      detail = dwt_output[1,1,:,:,:,:]
-      self.summary_image(name + "_hh",detail)
+      self.summary_image(name + "_ll",ll)
+      self.summary_image(name + "_lh",lh)
+      self.summary_image(name + "_hl",hl)
+      self.summary_image(name + "_hh",hh)
 
   def gen_aerr(self,labels,logits):
     with tf.variable_scope("AbsErrGen") as scope:
@@ -115,10 +111,8 @@ class ANN:
   '''-------------------------END HELPER FUNCTIONS----------------------------'''
 
   def level_builder(self,level,gt,sc_img,ll = None,bottom = False,top = False):
-    # with tf.variable_scope("Level_%d"%level) as scope:
-      gt_dwt = self.wavelet.dwt(gt)
-      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.from_wav_format(gt_dwt)
-      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.wav_norm(gt_ll,gt_lh,gt_hl,gt_hh)
+    with tf.variable_scope("Level_%d"%level) as scope:
+      gt_ll,gt_lh,gt_hl,gt_hh = self.wavelet.dwt(gt)
 
       # If we're at the bottom, we need to create our ll approximation
       lg_ll,g_loss,d_loss = self.ll_GAN([sc_img],gt_ll,True) if bottom else ll
@@ -141,16 +135,11 @@ class ANN:
       self.sum_g_loss.append(g_loss)
       self.sum_d_loss.append(d_loss)
 
-      lg_ll,lg_lh,lg_hl,lg_hh = self.wavelet.wav_denorm(lg_ll,lg_lh,lg_hl,lg_hh)
+      w_x,result = self.wavelet.idwt(lg_ll,lg_lh,lg_hl,lg_hh)
 
-      pred_dwt = self.wavelet.to_wav_format(lg_ll,lg_lh,lg_hl,lg_hh)
+      self.summary_wavelet('GT_WAV',gt_ll,gt_lh,gt_hl,gt_hh)
+      self.summary_wavelet('LG_WAV',lg_ll,lg_lh,lg_hl,lg_hh)
 
-      self.summary_wavelet("Level_%d_log"%level,pred_dwt)
-      self.summary_wavelet("Level_%d_gt" %level,gt_dwt  )
-
-      w_x,result = self.wavelet.idwt(pred_dwt)
-
-      result = tf.reshape(result,gt.get_shape())
       return result
 
   def pad(self,img):
@@ -168,10 +157,9 @@ class ANN:
       paddings    = [[0,0],[pad_size,pad_size],[pad_size,pad_size],[0,0]]
       return img[:,pad_size:-pad_size,pad_size:-pad_size,:]
 
-
   def inference(self):
     # This is our wavelet.
-    self.wavelet = TFWAV(FLAGS.wavelet_train,FLAGS.wavelet_type)
+    self.wavelet = TFWAV(FLAGS.wavelet_type,FLAGS.wavelet_train)
 
     img_s0      = self.pad(self.imgs)
     b,h,w,c     = img_s0.get_shape().as_list()

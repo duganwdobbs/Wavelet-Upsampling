@@ -1,11 +1,27 @@
 # import wavelets
+
+'''
+Dugan's Util-Wavelet High Level Wrapper
+Features: Automagic i/dwt resizing
+          Automagic de/normalization
+          Automagic scopes
+
+HOW TO USE:
+
+Create a wavelet of any given type by calling
+
+Wavelet = TFWAV(waveletTypeString,BooleanTrainable)
+This will pull values from Pywt, can deal with custom wavelets, and allow
+trainsble wavelets.
+
+
+'''
 import tensorflow as tf
 
 class TFWAV:
-  def __init__(self,trainable = False,wavelet = None):
+  def __init__(self,wavelet = None,trainable = False):
     if trainable is None or wavelet is None:
       raise KeyError("Invalid values pass to TFWAV.")
-
     if type(wavelet) is str:
       try:
         import pywt
@@ -14,12 +30,15 @@ class TFWAV:
       except:
         try:
           wavelet = eval("wavelets." + wavelet)
+          print("Not loading from pywt.")
+          # input(wavelet)
         except:
           raise KeyError("Incomputable Wavelet type.")
       self.filter  = self.make_decomposition_filter(wavelet,trainable)
     if type(wavelet) is float:
       self.filter  = self.make_decomposition_filter(wavelet,trainable)
     # print("\rWAVELET: ", wavelet,"                           ")
+    # input(wavelet)
     self.wavelet = wavelet
   # END __init__
 
@@ -46,8 +65,7 @@ class TFWAV:
 
   def dwt(self, inputs, padding_mode = "periodization"):
     with tf.variable_scope("DWT") as scope:
-      wavelet = self.wavelet
-      wavelet_length = len(wavelet)
+      wavelet_length = len(self.wavelet)
       wavelet_pad = wavelet_length-2
 
       examples,height,width,channels = inputs.get_shape().as_list()
@@ -145,11 +163,15 @@ class TFWAV:
       w_x_y = tf.reshape(w_x_y,(2,2,examples,height//2, width//2, channels))
 
 
-      return w_x_y
+      ll,lh,hl,hh = self.from_wav_format(w_x_y)
+      return self.wav_norm( ll,lh,hl,hh )
   # END dwt
 
-  def idwt(self, inputs, padding_mode = "periodization"):
+  def idwt(self, ll,lh,hl,hh, padding_mode = "periodization"):
     with tf.variable_scope("IDWT") as scope:
+
+      ll,lh,hl,hh = self.wav_denorm(ll,lh,hl,hh)
+      inputs = self.to_wav_format(ll,lh,hl,hh)
 
       wavelet = self.wavelet
       wavelet_length = len(wavelet)

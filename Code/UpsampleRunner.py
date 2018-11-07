@@ -21,14 +21,14 @@ elif platform.system() == 'Linux':
 
 # Network Variables
 flags.DEFINE_boolean('adv_logging'  , False                                  ,'If we log metadata and histograms.                                       DEFAULT = False'  )
-flags.DEFINE_boolean('l2_loss'      , True                                   ,'If we use L2 loss.                                                       DEFAULT = True'   )
+flags.DEFINE_boolean('l2_loss'      , False                                  ,'If we use L2 loss.                                                       DEFAULT = True'   )
 flags.DEFINE_boolean('restore'      , False                                  ,'If we use an old network state.                                          DEFAULT = False'  )
 flags.DEFINE_boolean('restore_disc' , False                                  ,'If we restore discriminator vars.                                        DEFAULT = False'  )
 flags.DEFINE_integer('num_epochs'   , 1                                      ,'Number of epochs to run per validation.                                  DEFAULT = 1'      )
-flags.DEFINE_integer('num_steps'    , 24000                                  ,'Number of steps to train.                                                DEFAULT = None'   )
-flags.DEFINE_integer('batch_size'   , 4                                      ,'Batch size for training.                                                 DEFAULT = ?'      )
+flags.DEFINE_integer('num_steps'    , 48000                                  ,'Number of steps to train.                                                DEFAULT = None'   )
+flags.DEFINE_integer('batch_size'   , 2                                      ,'Batch size for training.                                                 DEFAULT = ?'      )
 flags.DEFINE_float  ('keep_prob'    , .9                                     ,'A variable to use for dropout percentage. (Dont dropout during testing!) DEFAULT = .9'     )
-flags.DEFINE_float  ('learning_rate', .001                                  ,'A variable to use for initial learning rate.                             DEFAULT = .001'   )
+flags.DEFINE_float  ('learning_rate', .001                                   ,'A variable to use for initial learning rate.                             DEFAULT = .001'   )
 flags.DEFINE_string ('wavelet_type' , 'db2'                                  ,'The type of wavelet we use.                                              DEFAULT = \'DB2\'')
 flags.DEFINE_boolean('wavelet_train', False                                  ,'If we are training wavelet vars.                                         DEFAULT = False'  )
 
